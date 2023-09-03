@@ -40,3 +40,20 @@ class Actor(nn.Module):
     
     def forward(self, x):
         return self.actor(x)
+
+
+class Agent(nn.Module):
+    def __init__(self, envs):
+        super(Agent, self).__init__()
+        self.critic = Critic(envs)
+        self.actor = Actor(envs)
+
+    def get_value(self, x):
+        return self.critic(x)
+
+    def get_action_and_value(self, x, action=None):
+        logits = self.actor(x)
+        probs = Categorical(logits=logits)
+        if action is None:
+            action = probs.sample()
+        return action, probs.log_prob(action), probs.entropy(), self.critic(x)
