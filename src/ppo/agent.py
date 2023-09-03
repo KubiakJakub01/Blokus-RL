@@ -22,3 +22,21 @@ class Critic(nn.Module):
             nn.Tanh(),
             layer_init(nn.Linear(64, 1), std=1.0),
         )
+    
+    def forward(self, x):
+        return self.critic(x)
+    
+
+class Actor(nn.Module):
+    def __init__(self, envs):
+        super(Actor, self).__init__()
+        self.actor = nn.Sequential(
+            layer_init(nn.Linear(np.array(envs.single_observation_space.shape).prod(), 64)),
+            nn.Tanh(),
+            layer_init(nn.Linear(64, 64)),
+            nn.Tanh(),
+            layer_init(nn.Linear(64, envs.single_action_space.n), std=0.01),
+        )
+    
+    def forward(self, x):
+        return self.actor(x)

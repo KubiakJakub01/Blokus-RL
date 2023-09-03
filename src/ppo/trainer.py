@@ -1,4 +1,4 @@
-"""Trainer for PPO."""
+"""Module with trainer for class."""
 import os
 from pathlib import Path
 
@@ -12,8 +12,8 @@ from src.hparams import HParams
 from src.utils import LOG_INFO, make_env
 
 
-class PPOTrainer:
-    """Trainer for PPO."""
+class PPOAgent:
+    """Trainer for proximal policy optimization."""
     def __init__(self, hparams: HParams):
         """Initialize the trainer."""
         self.hparams = hparams
