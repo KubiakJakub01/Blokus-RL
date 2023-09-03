@@ -2,6 +2,7 @@
 import random
 import logging
 
+import gym
 import torch
 import numpy as np
 import coloredlogs
@@ -37,3 +38,17 @@ def seed(seed_number: int):
     np.random.seed(seed_number)
     torch.manual_seed(seed_number)
     torch.backends.cudnn.deterministic = True
+
+
+def make_env(gym_id, seed, idx, capture_video, run_name):
+    def _make_env():
+        env = gym.make(gym_id)
+        env = gym.wrappers.RecordEpisodeStatistics(env)
+        if capture_video:
+            if idx == 0:
+                env = gym.wrappers.RecordVideo(env, f"videos/{run_name}")
+        env.seed(seed)
+        env.action_space.seed(seed)
+        env.observation_space.seed(seed)
+        return env
+    return _make_env
