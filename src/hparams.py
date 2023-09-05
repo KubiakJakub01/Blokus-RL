@@ -1,15 +1,62 @@
 """Hyperparameters for training and testing."""
 from dataclasses import dataclass, field
+from datetime import datetime
 from pathlib import Path
 
 import yaml
 
+
 @dataclass
 class HParams:
-    experiment_name: str = field(default="blokus", metadata={"help": "Name of the experiment"})
+    checkpoint_dir: Path = field(
+        default=Path("models/checkpoints"),
+        metadata={"help": "Directory to save checkpoints"},
+    )
+    log_dir: Path = field(
+        default=Path("models/logs"),
+        metadata={"help": "Directory to save tensorboard logs"},
+    )
+    video_dir: Path = field(
+        default=Path("models/videos"), metadata={"help": "Directory to save videos"}
+    )
+    experiment_name: str = field(
+        default="blokus", metadata={"help": "Name of the experiment"}
+    )
     seed: int = field(default=42, metadata={"help": "Seed for the experiment"})
-    num_envs: int = field(default=4, metadata={"help": "Number of parallel environments"})
-    gym_env: str = field(default="blokus_gym:blokus-simple-v0", metadata={"help": "Gym environment ID"})
+    num_envs: int = field(
+        default=4, metadata={"help": "Number of parallel environments"}
+    )
+    gym_env: str = field(
+        default="blokus_gym:blokus-simple-v0", metadata={"help": "Gym environment ID"}
+    )
+    wanda: bool = field(default=False, metadata={"help": "Whether to use wandb"})
+    wandb_project_name: str = field(
+        default="blokus", metadata={"help": "Wandb project name"}
+    )
+    wandb_entity: str = field(default="blokus", metadata={"help": "Wandb entity"})
+    capture_video: bool = field(
+        default=False, metadata={"help": "Whether to capture video"}
+    )
+    learning_rate: float = field(default=2.5e-4, metadata={"help": "Learning rate"})
+    total_timesteps: int = field(
+        default=1_000_000, metadata={"help": "Total number of timesteps"}
+    )
+    num_steps: int = field(
+        default=128, metadata={"help": "Number of steps to run for each environment"}
+    )
+    batch_size: int = field(default=256, metadata={"help": "Batch size"})
+    eps: float = field(default=1e-5, metadata={"help": "Adam epsilon"})
+    anneal_lr: bool = field(
+        default=True, metadata={"help": "Whether to anneal the learning rate"}
+    )
+    gae: bool = field(
+        default=True, metadata={"help": "Whether to use generalized advantage estimation"}
+    )
+
+    def __post_init__(self):
+        self.start_time = datetime.now().strftime("%Y%m%d_%H%M%S")
+        self.run_name = f"{self.experiment_name}_{self.start_time}"
+        self.num_updates = self.total_timesteps // self.batch_size
 
 
 def load_params(hparam_fp: Path | None = None) -> HParams:
