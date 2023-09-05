@@ -1,6 +1,7 @@
 """Module with trainer for class."""
 import os
 from pathlib import Path
+from typing import Any
 
 import gym
 import torch
@@ -30,8 +31,6 @@ class Trainer:
 
         # Init variables
         self.global_step = 0
-        self.next_obs = torch.Tensor(self.envs.reset()).to(self.device)
-        self.next_done = torch.zeros(hparams.num_envs).to(self.device)
 
         # Init model, optimizer and memory
         self.agent = Agent(self.envs).to(self.device)
@@ -45,12 +44,33 @@ class Trainer:
 
     def train(self):
         """Train the model."""
+        self.next_obs = torch.Tensor(self.envs.reset()).to(self.device)
+        self.next_done = torch.zeros(self.hparams.num_envs).to(self.device)
+
         for update in range(1, self.hparams.num_updates + 1):
              # Annealing the rate if instructed to do so.
             if self.hparams.anneal_lr:
                 self.optimizer.param_groups[0]["lr"] = self._compute_anneal_lr(update)
 
+    def _train_step(self):
+        for step in range(0, self.hparams.num_steps):
+            self.global_step += 1 * self.hparams.num_envs
+            self.memory.obs[step] = self.next_obs
+            self.memory.dones[step] = self.next_done
 
+            # Get action and value from the agent
+            action, logproba, entropy, value = self._get_action_and_value(
+                self.memory.obs[step]
+            )
+            self.memory.values[step] = value.flatten()
+            self.memory.actions[step] = action
+            self.memory.logprobs[step] = logproba
+
+            # Step the environment
+            next_obs, reward, done, info = self.envs.step(action.cpu().numpy())
+            self.memory.rewards[step] = torch.tensor(reward).to(self.device).view(-1)
+            next_obs, next_done = torch.Tensor(next_obs).to(self.device), torch.Tensor(done).to(self.device)
+    
     def _compute_anneal_lr(self, update: int) -> float:
         """Compute the annealed learning rate.
         
@@ -61,3 +81,51 @@ class Trainer:
             Annealed learning rate."""
         frac = 1.0 - (update - 1.0) / self.hparams.num_updates
         return frac * self.hparams.learning_rate
+    
+    @torch.inference_mode()
+    def _get_action_and_value(self, obs: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
+        """Get action and value from the agent.
+        
+        Args:
+            obs: Observation tensor.
+        
+        Returns:
+            Tuple of action, log probability, entropy and value."""
+        action, logproba, entropy, value = self.agent.get_action_and_value(obs)
+        return action, logproba, entropy, value
+
+    def _log(self, update: int):
+        """Log the training progress.
+        
+        Args:
+            update: Current update step."""
+        if update % self.hparams.log_interval == 0:
+            LOG_INFO(
+                f"Update: {update}\t"
+                f"Mean reward: {self.memory.rewards.sum(dim=0).mean().item()}\t"
+                f"Mean value: {self.memory.values.mean().item()}\t"
+                f"Mean entropy: {self.memory.entropies.mean().item()}\t"
+                f"Mean logproba: {self.memory.logprobas.mean().item()}\t"
+            )
+
+    def _log_to_tb(self, update: int, item: dict[str, float]):
+        """Log to tensorboard.
+        
+        Args:
+            update: Current update step.
+            item: Dictionary containing the episode return and length."""
+        if update % self.hparams.log_interval == 0:
+            self.writer.add_scalar(
+                "reward", self.memory.rewards.sum(dim=0).mean().item(), self.global_step
+            )
+            self.writer.add_scalar(
+                "value", self.memory.values.mean().item(), self.global_step
+            )
+            self.writer.add_scalar(
+                "entropy", self.memory.entropies.mean().item(), self.global_step
+            )
+            self.writer.add_scalar(
+                "logproba", self.memory.logprobas.mean().item(), self.global_step
+            )
+            self.writer.add_scalar("episodic_return", item["episode"]["r"], self.global_step)
+            self.writer.add_scalar("episodic_length", item["episode"]["l"], self.global_step)
