@@ -70,10 +70,60 @@ class Trainer:
             next_obs, reward, done, info = self.envs.step(action.cpu().numpy())
             self.memory.rewards[step] = torch.tensor(reward).to(self.device).view(-1)
             next_obs, next_done = torch.Tensor(next_obs).to(self.device), torch.Tensor(done).to(self.device)
-    
+
+            # Log to tensorboard
+            self._log_to_tb(self.global_step, info)
+
+            # Compute advantages and returns
+            next_value = self.agent.get_value(next_obs).reshape(1, -1)
+            if self.hparams.gae:
+                advantages = self._compute_gae(next_value, self.next_done)
+                returns = advantages + self.memory.values
+            else:
+                returns = self._compute_returns(next_value, self.next_done)
+                advantages = returns - self.memory.values
+            
+            # flatten the batch
+            b_obs = self.memory.obs.reshape((-1,) + self.envs.single_observation_space.shape)
+            b_logprobs = self.memory.logprobs.reshape(-1)
+            b_actions = self.memory.actions.reshape((-1,) + self.envs.single_action_space.shape)
+            b_advantages = advantages.reshape(-1)
+            b_returns = returns.reshape(-1)
+            b_values = self.memory.values.reshape(-1)
+
+    def _compute_gae(self, next_value: torch.Tensor, next_done: torch.Tensor) -> torch.Tensor:
+        advantages = torch.zeros_like(self.memory.rewards).to(self.device)
+        lastgaelam = 0
+        for t in reversed(range(self.hparams.num_steps)):
+            if t == self.hparams.num_steps - 1:
+                nextnonterminal = 1.0 - next_done
+                nextvalues = next_value
+            else:
+                nextnonterminal = 1.0 - self.memory.dones[t + 1]
+                nextvalues = self.memory.values[t + 1]
+            delta = self.memory.rewards[t] + self.hparams.gamma * nextvalues * nextnonterminal - self.memory.values[t]
+            advantages[t] = lastgaelam = delta + self.hparams.gamma * self.hparams.gae_lambda * nextnonterminal * lastgaelam
+        return advantages
+
+    @torch.inference_mode()
+    def _compute_returns(self, next_value: torch.Tensor, next_done: torch.Tensor) -> torch.Tensor:
+        returns = torch.zeros_like(self.memory.rewards).to(self.device)
+        for t in reversed(range(self.hparams.num_steps)):
+            if t == self.hparams.num_steps - 1:
+                nextnonterminal = 1.0 - next_done
+                next_return = next_value
+            else:
+                nextnonterminal = 1.0 - self.memory.dones[t + 1]
+                next_return = returns[t + 1]
+            returns[t] = self.memory.rewards[t] + self.hparams.gamma * nextnonterminal * next_return
+        return returns
+
     def _compute_anneal_lr(self, update: int) -> float:
         """Compute the annealed learning rate.
-        
+
+        Anneals learning rate is computed as:
+        `lr = lr_0 * (1 - (update - 1) / num_updates)`
+
         Args:
             update: Current update step.
         
