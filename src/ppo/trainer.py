@@ -102,6 +102,40 @@ class Trainer:
                     end = start + self.hparams.minibatch_size
                     mb_inds = b_inds[start:end]
 
+                    _, newlogprob, entropy, newvalue = self.agent.get_action_and_value(b_obs[mb_inds], b_actions.long()[mb_inds])
+                    logratio = newlogprob - b_logprobs[mb_inds]
+                    ratio = logratio.exp()
+
+                    with torch.no_grad():
+                        # calculate approx_kl http://joschu.net/blog/kl-approx.html
+                        old_approx_kl = (-logratio).mean()
+                        approx_kl = ((ratio - 1) - logratio).mean()
+                        clipfracs += [((ratio - 1.0).abs() > self.hparams.clip_coef).float().mean().item()]
+                    
+                    mb_advantages = b_advantages[mb_inds]
+                    if self.hparams.norm_adv:
+                        mb_advantages = (mb_advantages - mb_advantages.mean()) / (mb_advantages.std() + 1e-8)
+
+                    # Policy loss
+                    pg_loss = self._calculate_policy_loss(mb_advantages, ratio)
+
+
+    def _calculate_policy_loss(self, mb_advantages: torch.Tensor, ratio: torch.Tensor) -> torch.Tensor:
+        """Calculate the policy loss.
+
+        Policy objective is to maximize the following:
+        `L = -E[min(ratio * A, clip(ratio, 1 - clip_coef, 1 + clip_coef) * A)]`
+
+        Args:
+            mb_advantages: Advantage tensor.
+            ratio: Ratio tensor.
+
+        Returns:
+            Policy loss."""
+        pg_loss1 = -mb_advantages * ratio
+        pg_loss2 = -mb_advantages * torch.clamp(ratio, 1 - self.hparams.clip_coef, 1 + self.hparams.clip_coef)
+        return torch.max(pg_loss1, pg_loss2).mean()
+
     def _compute_gae(self, next_value: torch.Tensor, next_done: torch.Tensor) -> torch.Tensor:
         advantages = torch.zeros_like(self.memory.rewards).to(self.device)
         lastgaelam = 0

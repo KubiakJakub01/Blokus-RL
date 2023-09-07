@@ -64,6 +64,12 @@ class HParams:
     gae_lambda: float = field(
         default=0.95, metadata={"help": "Lambda parameter for GAE"}
     )
+    clip_coef: float = field(
+        default=0.2, metadata={"help": "Clipping parameter for PPO"}
+    )
+    norm_adv: bool = field(
+        default=True, metadata={"help": "Whether to normalize the advantages"}
+    )
 
     def __post_init__(self):
         self.start_time = datetime.now().strftime("%Y%m%d_%H%M%S")
