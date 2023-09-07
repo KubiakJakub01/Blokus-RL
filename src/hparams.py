@@ -37,6 +37,9 @@ class HParams:
     capture_video: bool = field(
         default=False, metadata={"help": "Whether to capture video"}
     )
+    num_epochs: int = field(
+        default=100, metadata={"help": "Number of epochs to train for"}
+    )
     learning_rate: float = field(default=2.5e-4, metadata={"help": "Learning rate"})
     total_timesteps: int = field(
         default=1_000_000, metadata={"help": "Total number of timesteps"}
@@ -45,12 +48,21 @@ class HParams:
         default=128, metadata={"help": "Number of steps to run for each environment"}
     )
     batch_size: int = field(default=256, metadata={"help": "Batch size"})
+    minibatch_size: int = field(
+        default=32, metadata={"help": "Minibatch size for gradient descent"}
+    )
     eps: float = field(default=1e-5, metadata={"help": "Adam epsilon"})
     anneal_lr: bool = field(
         default=True, metadata={"help": "Whether to anneal the learning rate"}
     )
     gae: bool = field(
         default=True, metadata={"help": "Whether to use generalized advantage estimation"}
+    )
+    gamma: float = field(
+        default=0.99, metadata={"help": "Discount factor for rewards"}
+    )
+    gae_lambda: float = field(
+        default=0.95, metadata={"help": "Lambda parameter for GAE"}
     )
 
     def __post_init__(self):

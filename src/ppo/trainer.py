@@ -4,6 +4,7 @@ from pathlib import Path
 from typing import Any
 
 import gym
+import numpy as np
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -91,6 +92,16 @@ class Trainer:
             b_returns = returns.reshape(-1)
             b_values = self.memory.values.reshape(-1)
 
+            # Optimizing the policy and value network
+            b_inds = np.arange(self.hparams.batch_size)
+            clipfracs = []
+            for epoch in range(self.hparams.num_epochs):
+                np.random.shuffle(b_inds)
+                # For each minibatch
+                for start in range(0, self.hparams.batch_size, self.hparams.minibatch_size):
+                    end = start + self.hparams.minibatch_size
+                    mb_inds = b_inds[start:end]
+
     def _compute_gae(self, next_value: torch.Tensor, next_done: torch.Tensor) -> torch.Tensor:
         advantages = torch.zeros_like(self.memory.rewards).to(self.device)
         lastgaelam = 0
@@ -107,6 +118,17 @@ class Trainer:
 
     @torch.inference_mode()
     def _compute_returns(self, next_value: torch.Tensor, next_done: torch.Tensor) -> torch.Tensor:
+        """Compute the returns.
+
+        Returns are computed as:
+        `R_t = r_t + gamma * (1 - done_{t+1}) * V(s_{t+1})`
+        
+        Args:
+            next_value: Value of the next state.
+            next_done: Whether the next state is done.
+        
+        Returns:
+            Returns."""
         returns = torch.zeros_like(self.memory.rewards).to(self.device)
         for t in reversed(range(self.hparams.num_steps)):
             if t == self.hparams.num_steps - 1:
