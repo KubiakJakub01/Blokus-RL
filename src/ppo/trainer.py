@@ -115,6 +115,19 @@ class Trainer:
                     # Policy loss
                     pg_loss = self._calculate_policy_loss(mb_advantages, ratio)
 
+                    # Value loss
+                    v_loss = self._calculate_value_loss(
+                        newvalue,
+                        mb_inds,
+                        b_returns,
+                        b_values,
+                        entropy,
+                        pg_loss.detach(),
+                    )
+
+                    # Backpropagate
+                    self.optimizer.zero_grad()
+
     def _play_env(self) -> tuple[torch.Tensor, torch.Tensor]:
         """Play the environment for a number of steps."""
         for step in range(self.hparams.num_steps):
@@ -169,8 +182,6 @@ class Trainer:
         mb_inds: torch.Tensor,
         b_returns: torch.Tensor,
         b_values: torch.Tensor,
-        entropy: torch.Tensor,
-        pg_loss: torch.Tensor,
     ) -> torch.Tensor:
         """Calculate the value loss.
 
@@ -201,6 +212,23 @@ class Trainer:
         else:
             v_loss = 0.5 * ((newvalue - b_returns[mb_inds]) ** 2).mean()
 
+        return v_loss
+
+    def _compute_total_loss(
+        self, pg_loss: torch.Tensor, entropy: torch.Tensor, v_loss: torch.Tensor
+    ) -> torch.Tensor:
+        """Compute the total loss.
+
+        Total loss is computed as:
+        `L = pg_loss - ent_coef * entropy + v_loss * vf_coef`
+
+        Args:
+            pg_loss: Policy gradient loss.
+            entropy: Entropy tensor.
+            v_loss: Value loss.
+
+        Returns:
+            Total loss."""
         entropy_loss = entropy.mean()
         loss = (
             pg_loss

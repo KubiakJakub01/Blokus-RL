@@ -76,6 +76,9 @@ class HParams:
     ent_coef: float = field(
         default=0.01, metadata={"help": "Entropy coefficient for PPO"}
     )
+    vf_coef: float = field(
+        default=0.5, metadata={"help": "Value function coefficient for PPO"}
+    )
 
     def __post_init__(self):
         self.start_time = datetime.now().strftime("%Y%m%d_%H%M%S")
