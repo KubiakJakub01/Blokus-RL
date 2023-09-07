@@ -70,6 +70,12 @@ class HParams:
     norm_adv: bool = field(
         default=True, metadata={"help": "Whether to normalize the advantages"}
     )
+    clip_vloss: bool = field(
+        default=True, metadata={"help": "Whether to clip the value loss"}
+    )
+    ent_coef: float = field(
+        default=0.01, metadata={"help": "Entropy coefficient for PPO"}
+    )
 
     def __post_init__(self):
         self.start_time = datetime.now().strftime("%Y%m%d_%H%M%S")
