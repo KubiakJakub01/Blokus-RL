@@ -7,7 +7,7 @@ import torch
 import numpy as np
 import coloredlogs
 
-from src.hparams import HParams
+from .hparams import HParams
 
 # Set up logging
 logger = logging.getLogger(__name__)

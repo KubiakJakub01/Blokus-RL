@@ -2,7 +2,7 @@
 import gymnasium as gym
 import torch
 
-from src.hparams import HParams
+from ..hparams import HParams
 
 
 class Memory:
