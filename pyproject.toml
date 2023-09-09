@@ -1,0 +1,25 @@
+[project]
+name = "blokus_rl"
+description = "Reinforcement learning for blocus"
+readme = "README.md"
+version = "0.1.0"
+authors = [
+    { name = "Jakub Kubiak", email = "kubiak.jakub01@gmail.com" }
+]
+requires-python = ">=3.10"
+dependencies = [
+    "torch==2.0.1",
+    "gymnasium==0.29.1",
+    "moviepy==1.0.3",
+    "coloredlogs==15.0.1",
+    "numpy==1.25.2"
+]
+classifiers = [
+    "Programming Language :: Python :: 3.10",
+    "Topic :: Scientific/Engineering :: Reinforcement Learning",
+    "Topic :: Games/Entertainment :: Board Games"
+]
+
+[build-system]
+build-backend = "flit_core.buildapi"
+requires = ["flit_core >=3.8.0,<4"]
