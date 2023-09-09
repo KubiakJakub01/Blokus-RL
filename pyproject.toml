@@ -1,6 +1,6 @@
 [project]
 name = "blokus_rl"
-description = "Reinforcement learning for blocus"
+description = "Reinforcement learning for blokus game"
 readme = "README.md"
 version = "0.1.0"
 authors = [

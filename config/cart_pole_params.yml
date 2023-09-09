@@ -1,0 +1,6 @@
+gym_env: CartPole-v1
+experiment_name: CartPole
+wanda: true
+wandb_project_name: cleanRL
+wandb_entity: CartPole
+capture_video: false
