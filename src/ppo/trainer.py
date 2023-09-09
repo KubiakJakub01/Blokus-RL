@@ -1,28 +1,29 @@
 """Module with trainer for class."""
-import os
-from pathlib import Path
+import time
+from collections import defaultdict
+from datetime import datetime
 from typing import Any
 
-import gym
+import gymnasium as gym
 import numpy as np
 import torch
 import torch.nn as nn
 import torch.optim as optim
 from torch.utils.tensorboard import SummaryWriter
 
-from src.hparams import HParams
-from src.utils import LOG_INFO, make_env
-from src.ppo.agent import Agent
-from src.ppo.memory import Memory
+from .agent import Agent
+from .memory import Memory
+from ..hparams import HParams
+from ..utils import LOG_INFO, make_env
 
 
-class Trainer:
+class PPOTrainer:
     """Trainer for proximal policy optimization."""
 
-    def __init__(self, hparams: HParams, device: torch.device):
+    def __init__(self, hparams: HParams):
         """Initialize the trainer."""
         self.hparams = hparams
-        self.device = device
+        self.device = "cuda" if torch.cuda.is_available() else "cpu"
         self.envs = gym.vector.SyncVectorEnv(
             [make_env(i, hparams) for i in range(hparams.num_envs)]
         )
@@ -36,16 +37,24 @@ class Trainer:
         # Init model, optimizer and memory
         self.agent = Agent(self.envs).to(self.device)
         self.optimizer = optim.Adam(
-            self.agent.parameters(), lr=hparams.lr, eps=hparams.eps
+            self.agent.parameters(), lr=self.hparams.learning_rate, eps=self.hparams.eps
         )
         self.memory = Memory(hparams, self.envs, self.device)
 
         # Init tensorboard
-        self.writer = SummaryWriter(log_dir=f"{hparams.log_dir}/{hparams.run_name}")
+        self.writer = SummaryWriter(log_dir=hparams.log_dir)
+        self.running_vals = self._reset_running_vals()
+
+        LOG_INFO("Using device: %s", self.device)
 
     def train(self):
         """Train the model."""
-        self.next_obs = torch.Tensor(self.envs.reset()).to(self.device)
+        start_time = time.time()
+        LOG_INFO(
+            "Starting training at %s", datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        )
+        obs, _ = self.envs.reset()
+        self.next_obs = torch.Tensor(obs).to(self.device)
         self.next_done = torch.zeros(self.hparams.num_envs).to(self.device)
 
         for update in range(1, self.hparams.num_updates + 1):
@@ -117,16 +126,62 @@ class Trainer:
 
                     # Value loss
                     v_loss = self._calculate_value_loss(
-                        newvalue,
-                        mb_inds,
-                        b_returns,
-                        b_values,
-                        entropy,
-                        pg_loss.detach(),
+                        newvalue, mb_inds, b_returns, b_values
+                    )
+
+                    # Total loss
+                    entropy_loss = entropy.mean()
+                    loss = self._compute_total_loss(
+                        pg_loss.detach(), entropy_loss, v_loss.detach()
                     )
 
                     # Backpropagate
                     self.optimizer.zero_grad()
+                    loss.backward()
+                    nn.utils.clip_grad_norm_(
+                        self.agent.parameters(), self.hparams.max_grad_norm
+                    )
+                    self.optimizer.step()
+
+                # Early stopping
+                if self.hparams.target_kl is not None:
+                    if approx_kl > self.hparams.target_kl:
+                        break
+
+            y_pred, y_true = (
+                b_values.cpu().detach().numpy(),
+                b_returns.cpu().detach().numpy(),
+            )
+            var_y = np.var(y_true)
+            explained_var = (
+                np.nan if var_y == 0 else 1 - np.var(y_true - y_pred) / var_y
+            )
+
+            # Update the running values
+            self._update_running_vals(
+                {
+                    "learning_rate": self.optimizer.param_groups[0]["lr"],
+                    "SPS": int(self.global_step / (time.time() - start_time)),
+                },
+                prefix="charts",
+            )
+            self._update_running_vals(
+                {
+                    "loss": loss.item(),
+                    "value_loss": v_loss.item(),
+                    "policy_loss": pg_loss.item(),
+                    "entropy": entropy_loss.item(),
+                    "old_approx_kl": old_approx_kl.item(),
+                    "approx_kl": approx_kl.item(),
+                    "clipfrac": np.mean(clipfracs),
+                    "explained_variance": explained_var,
+                },
+                prefix="losses",
+            )
+
+            # Log the training progress
+            self._log()
+            self._log_to_tb()
 
     def _play_env(self) -> tuple[torch.Tensor, torch.Tensor]:
         """Play the environment for a number of steps."""
@@ -144,15 +199,41 @@ class Trainer:
             self.memory.logprobs[step] = logproba
 
             # Step the environment
-            next_obs, reward, done, info = self.envs.step(action.cpu().numpy())
+            next_obs, reward, terminated, trunctate, info = self.envs.step(
+                action.cpu().numpy()
+            )
             self.memory.rewards[step] = torch.tensor(reward).to(self.device).view(-1)
             next_obs, next_done = (
                 torch.Tensor(next_obs).to(self.device),
-                torch.Tensor(done).to(self.device),
+                torch.Tensor(terminated).to(self.device),
             )
 
-            # Log to tensorboard
-            self._log_to_tb(self.global_step, info)
+            # Update the running values
+            self._update_running_vals(
+                {
+                    "reward": reward.mean(),
+                    "value": value.cpu().mean(),
+                    "entropy": entropy.cpu().mean(),
+                    "logproba": logproba.cpu().mean(),
+                },
+                prefix="env",
+            )
+            LOG_INFO("Info: %s", info)
+            for item in info:
+                if "episode" in item.keys():
+                    LOG_INFO(
+                        "global_step: %d | episodic_return: %d | episodic_length: %d",
+                        self.global_step,
+                        item["episode"]["r"],
+                        item["episode"]["l"],
+                    )
+                    self._update_running_vals(
+                        {
+                            "episodic_return": item["episode"]["r"],
+                            "episodic_length": item["episode"]["l"],
+                        },
+                        prefix="charts",
+                    )
 
         return next_obs, next_done
 
@@ -215,7 +296,7 @@ class Trainer:
         return v_loss
 
     def _compute_total_loss(
-        self, pg_loss: torch.Tensor, entropy: torch.Tensor, v_loss: torch.Tensor
+        self, pg_loss: torch.Tensor, entropy_loss: torch.Tensor, v_loss: torch.Tensor
     ) -> torch.Tensor:
         """Compute the total loss.
 
@@ -224,12 +305,11 @@ class Trainer:
 
         Args:
             pg_loss: Policy gradient loss.
-            entropy: Entropy tensor.
+            entropy_loss: Entropy loss.
             v_loss: Value loss.
 
         Returns:
             Total loss."""
-        entropy_loss = entropy.mean()
         loss = (
             pg_loss
             - self.hparams.ent_coef * entropy_loss
@@ -320,42 +400,34 @@ class Trainer:
         action, logproba, entropy, value = self.agent.get_action_and_value(obs)
         return action, logproba, entropy, value
 
-    def _log(self, update: int):
-        """Log the training progress.
-        
-        Args:
-            update: Current update step."""
-        if update % self.hparams.log_interval == 0:
-            LOG_INFO(
-                f"Update: {update}\t"
-                f"Mean reward: {self.memory.rewards.sum(dim=0).mean().item()}\t"
-                f"Mean value: {self.memory.values.mean().item()}\t"
-                f"Mean entropy: {self.memory.entropies.mean().item()}\t"
-                f"Mean logproba: {self.memory.logprobas.mean().item()}\t"
-            )
+    def _log(self):
+        """Log the training progress."""
+        LOG_INFO(
+            "global_step: %d | loss %.2f | value_loss %.2f | SPS %d",
+            self.global_step,
+            np.mean(self.running_vals["losses/loss"]),
+            np.mean(self.running_vals["losses/value_loss"]),
+            np.mean(self.running_vals["charts/SPS"]),
+        )
 
-    def _log_to_tb(self, update: int, item: dict[str, float]):
-        """Log to tensorboard.
+    def _log_to_tb(self):
+        """Log the running values to tensorboard."""
+        for key, values in self.running_vals.items():
+            self.writer.add_scalar(key, np.mean(values), self.global_step)
+        self.running_vals = self._reset_running_vals()
+
+    def _reset_running_vals(self):
+        """Reset the running values."""
+        return defaultdict(list)
+
+    def _update_running_vals(self, items: dict[str, Any], prefix=None):
+        """Update the running values.
         
         Args:
-            update: Current update step.
-            item: Dictionary containing the episode return and length."""
-        if update % self.hparams.log_interval == 0:
-            self.writer.add_scalar(
-                "reward", self.memory.rewards.sum(dim=0).mean().item(), self.global_step
-            )
-            self.writer.add_scalar(
-                "value", self.memory.values.mean().item(), self.global_step
-            )
-            self.writer.add_scalar(
-                "entropy", self.memory.entropies.mean().item(), self.global_step
-            )
-            self.writer.add_scalar(
-                "logproba", self.memory.logprobas.mean().item(), self.global_step
-            )
-            self.writer.add_scalar(
-                "episodic_return", item["episode"]["r"], self.global_step
-            )
-            self.writer.add_scalar(
-                "episodic_length", item["episode"]["l"], self.global_step
-            )
+            items: Dictionary containing the values.
+            prefix: Prefix for the keys."""
+        for key, value in items.items():
+            if prefix is None:
+                self.running_vals[key].append(value)
+            else:
+                self.running_vals[f"{prefix}/{key}"].append(value)

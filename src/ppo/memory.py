@@ -22,3 +22,5 @@ class Memory:
         self.rewards = torch.zeros((self.num_steps, self.num_envs)).to(device)
         self.dones = torch.zeros((self.num_steps, self.num_envs)).to(device)
         self.values = torch.zeros((self.num_steps, self.num_envs)).to(device)
+        self.advantages = torch.zeros((self.num_steps, self.num_envs)).to(device)
+        self.returns = torch.zeros((self.num_steps, self.num_envs)).to(device)
