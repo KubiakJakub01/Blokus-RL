@@ -2,10 +2,12 @@
 import random
 import logging
 
-import gym
+import gymnasium as gym
 import torch
 import numpy as np
 import coloredlogs
+
+from src.hparams import HParams
 
 # Set up logging
 logger = logging.getLogger(__name__)
@@ -18,19 +20,19 @@ logger.addHandler(handler)
 logger.setLevel(logging.INFO)
 
 
-def LOG_INFO(msg: str):
+def LOG_INFO(*args, **kwargs):
     """Log an info message."""
-    logger.info(msg)
+    logger.info(*args, **kwargs)
 
 
-def LOG_WARNING(msg: str):
+def LOG_WARNING(*args, **kwargs):
     """Log a warning message."""
-    logger.warning(msg)
+    logger.warning(*args, **kwargs)
 
 
-def LOG_ERROR(msg: str):
+def LOG_ERROR(*args, **kwargs):
     """Log an error message."""
-    logger.error(msg)
+    logger.error(*args, **kwargs)
 
 
 def seed(seed_number: int):
@@ -40,15 +42,18 @@ def seed(seed_number: int):
     torch.backends.cudnn.deterministic = True
 
 
-def make_env(gym_id, seed, idx, capture_video, run_name):
+def make_env(idx, hparams: HParams):
     def _make_env():
-        env = gym.make(gym_id)
+        env = gym.make(hparams.gym_env)
         env = gym.wrappers.RecordEpisodeStatistics(env)
-        if capture_video:
+        if hparams.capture_video:
             if idx == 0:
-                env = gym.wrappers.RecordVideo(env, f"videos/{run_name}")
-        env.seed(seed)
-        env.action_space.seed(seed)
-        env.observation_space.seed(seed)
+                env = gym.make(hparams.gym_env, render_mode="rgb_array")
+                env = gym.wrappers.RecordVideo(
+                    env, f"{hparams.log_dir}/{hparams.run_name}"
+                )
+        env.action_space.seed(hparams.seed)
+        env.observation_space.seed(hparams.seed)
         return env
+
     return _make_env
