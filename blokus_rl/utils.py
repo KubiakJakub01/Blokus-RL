@@ -1,24 +1,26 @@
 """Utility functions for the project."""
-import random
 import logging
+import os
+import random
 
+import coloredlogs
 import gymnasium as gym
 import torch
 import numpy as np
-import coloredlogs
 
 from .hparams import HParams
 
 # Set up logging
 logger = logging.getLogger(__name__)
 handler = logging.StreamHandler()
-handler.setLevel(logging.INFO)
 handler.setFormatter(
     coloredlogs.ColoredFormatter("%(asctime)s %(levelname)s %(message)s")
 )
 logger.addHandler(handler)
-logger.setLevel(logging.INFO)
 
+def LOG_DEBUG(*args, **kwargs):
+    """Log an debug message."""
+    logger.debug(*args, **kwargs)
 
 def LOG_INFO(*args, **kwargs):
     """Log an info message."""
@@ -40,6 +42,12 @@ def seed(seed_number: int):
     np.random.seed(seed_number)
     torch.manual_seed(seed_number)
     torch.backends.cudnn.deterministic = True
+
+
+def set_environ(hparams: HParams):
+    """Set environment variables."""
+    os.environ["LOGLEVEL"] = hparams.log_level
+    logger.setLevel(hparams.log_level)
 
 
 def make_env(idx, hparams: HParams):

@@ -3,7 +3,7 @@ import argparse
 from pathlib import Path
 
 from .hparams import load_hparams, HParams
-from .utils import LOG_INFO
+from .utils import LOG_INFO, seed, set_environ
 from .ppo import PPOTrainer
 
 
@@ -38,7 +38,6 @@ if __name__ == "__main__":
 
         wandb.init(
             project=hparams.wandb_project_name,
-            entity=hparams.wandb_entity,
             sync_tensorboard=True,
             config=hparams,
             name=hparams.run_name,
@@ -47,5 +46,9 @@ if __name__ == "__main__":
         )
 
     LOG_INFO(hparams)
+
+    # Set environment variables
+    set_environ(hparams)
+    seed(hparams.seed)
 
     train(hparams)

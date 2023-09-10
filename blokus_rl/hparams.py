@@ -2,6 +2,7 @@
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
+from typing import Literal
 
 import yaml
 
@@ -34,9 +35,11 @@ class HParams:
     wandb_project_name: str = field(
         default="blokus", metadata={"help": "Wandb project name"}
     )
-    wandb_entity: str = field(default=None, metadata={"help": "Wandb entity"})
     capture_video: bool = field(
         default=False, metadata={"help": "Whether to capture video"}
+    )
+    log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR"] = field(
+        default="INFO", metadata={"help": "Logging level for the experiment"}
     )
 
     # Training parameters
