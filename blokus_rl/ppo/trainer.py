@@ -14,7 +14,7 @@ from torch.utils.tensorboard import SummaryWriter
 from .agent import Agent
 from .memory import Memory
 from ..hparams import HParams
-from ..utils import LOG_INFO, make_env
+from ..utils import LOG_INFO, LOG_DEBUG, make_env
 
 
 class PPOTrainer:
@@ -218,22 +218,7 @@ class PPOTrainer:
                 },
                 prefix="env",
             )
-            LOG_INFO("Info: %s", info)
-            for item in info:
-                if "episode" in item.keys():
-                    LOG_INFO(
-                        "global_step: %d | episodic_return: %d | episodic_length: %d",
-                        self.global_step,
-                        item["episode"]["r"],
-                        item["episode"]["l"],
-                    )
-                    self._update_running_vals(
-                        {
-                            "episodic_return": item["episode"]["r"],
-                            "episodic_length": item["episode"]["l"],
-                        },
-                        prefix="charts",
-                    )
+            self._log_info(info)
 
         return next_obs, next_done
 
@@ -415,6 +400,24 @@ class PPOTrainer:
         for key, values in self.running_vals.items():
             self.writer.add_scalar(key, np.mean(values), self.global_step)
         self.running_vals = self._reset_running_vals()
+
+    def _log_info(self, info: dict[str, Any]):
+        for item in info.get("final_info", []):
+            if item is not None and "episode" in item:
+                LOG_DEBUG(
+                    "global_step: %d | episodic_return: %d | episodic_length: %d",
+                    self.global_step,
+                    item["episode"]["r"],
+                    item["episode"]["l"],
+                )
+                self._update_running_vals(
+                    {
+                        "episodic_return": item["episode"]["r"],
+                        "episodic_length": item["episode"]["l"],
+                    },
+                    prefix="charts",
+                )
+                break
 
     def _reset_running_vals(self):
         """Reset the running values."""
