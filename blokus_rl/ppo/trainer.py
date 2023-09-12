@@ -3,6 +3,7 @@ import time
 from collections import defaultdict
 from datetime import datetime
 from typing import Any
+from statistics import mean
 
 import gymnasium as gym
 import numpy as np
@@ -14,7 +15,7 @@ from torch.utils.tensorboard import SummaryWriter
 from .agent import Agent
 from .memory import Memory
 from ..hparams import HParams
-from ..utils import LOG_INFO, LOG_DEBUG, make_envs
+from ..utils import LOG_INFO, make_envs
 
 
 class Trainer:
@@ -36,6 +37,7 @@ class Trainer:
             self.agent.parameters(), lr=self.hparams.learning_rate, eps=self.hparams.eps
         )
         self.memory = Memory(self.hparams, self.envs, self.device)
+        self.running_vals = self._reset_running_vals()
 
     def train(self):
         """Train the agent."""
@@ -68,12 +70,13 @@ class Trainer:
             self._optimize_agent(batch)
 
             # TRY NOT TO MODIFY: record rewards for plotting purposes
-            LOG_INFO("SPS: %d", int(self.global_step / (time.time() - start_time)))
-            self.writer.add_scalar(
-                "charts/SPS",
-                int(self.global_step / (time.time() - start_time)),
-                self.global_step,
+            self._update_running_vals(
+                {"SPS": int(self.global_step / (time.time() - start_time))},
+                prefix="charts",
             )
+
+            # Log the running values
+            self._log(update)
 
         self.envs.close()
         self.writer.close()
@@ -116,12 +119,12 @@ class Trainer:
 
             for item in info.get("final_info", []):
                 if item is not None and "episode" in item:
-                    LOG_INFO("global_step: %d | episodic_return: %.2f", self.global_step, item["episode"]["r"])
-                    self.writer.add_scalar(
-                        "charts/episodic_return", item["episode"]["r"], self.global_step
-                    )
-                    self.writer.add_scalar(
-                        "charts/episodic_length", item["episode"]["l"], self.global_step
+                    self._update_running_vals(
+                        {
+                            "episode_return": item["episode"]["r"],
+                            "episode_length": item["episode"]["l"],
+                        },
+                        prefix="charts",
                     )
                     break
 
@@ -230,19 +233,56 @@ class Trainer:
         explained_var = np.nan if var_y == 0 else 1 - np.var(y_true - y_pred) / var_y
 
         # TRY NOT TO MODIFY: record rewards for plotting purposes
-        self.writer.add_scalar(
-            "charts/learning_rate",
-            self.optimizer.param_groups[0]["lr"],
-            self.global_step,
+        self._update_running_vals(
+            {"learning_rate": self.optimizer.param_groups[0]["lr"]}, prefix="charts"
         )
-        self.writer.add_scalar("losses/value_loss", v_loss.item(), self.global_step)
-        self.writer.add_scalar("losses/policy_loss", pg_loss.item(), self.global_step)
-        self.writer.add_scalar("losses/entropy", entropy_loss.item(), self.global_step)
-        self.writer.add_scalar(
-            "losses/old_approx_kl", old_approx_kl.item(), self.global_step
+        self._update_running_vals(
+            {
+                "loss": loss.item(),
+                "value_loss": v_loss.item(),
+                "policy_loss": pg_loss.item(),
+                "entropy": entropy_loss.item(),
+                "old_approx_kl": old_approx_kl.item(),
+                "approx_kl": approx_kl.item(),
+                "clipfrac": np.mean(clipfracs),
+                "explained_variance": explained_var,
+            },
+            prefix="losses",
         )
-        self.writer.add_scalar("losses/approx_kl", approx_kl.item(), self.global_step)
-        self.writer.add_scalar("losses/clipfrac", np.mean(clipfracs), self.global_step)
-        self.writer.add_scalar(
-            "losses/explained_variance", explained_var, self.global_step
-        )
+
+    def _reset_running_vals(self):
+        """Reset the running values."""
+        return defaultdict(list)
+
+    def _update_running_vals(self, items: dict[str, Any], prefix=None):
+        """Update the running values.
+        
+        Args:
+            items: Dictionary containing the values.
+            prefix: Prefix for the keys."""
+        for key, value in items.items():
+            if isinstance(value, torch.Tensor):
+                value = value.item()
+            elif isinstance(value, np.ndarray):
+                value = value.item()
+            if prefix is None:
+                self.running_vals[key].append(value)
+            else:
+                self.running_vals[f"{prefix}/{key}"].append(value)
+
+    def _log(self, update: int):
+        """Log the running values."""
+        if update % self.hparams.log_interval == 0:
+            LOG_INFO(
+                "global_step: %d | episodic_return: %.2f | loss: %.2f | SPS: %d",
+                self.global_step,
+                mean(self.running_vals["charts/episode_return"]),
+                mean(self.running_vals["losses/loss"]),
+                mean(self.running_vals["charts/SPS"]),
+            )
+
+        # Log the running values
+        if update % self.hparams.tb_log_interval == 0:
+            for key, value in self.running_vals.items():
+                self.writer.add_scalar(key, mean(value), self.global_step)
+            self.running_vals = self._reset_running_vals()

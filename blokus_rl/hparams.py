@@ -42,6 +42,13 @@ class HParams:
     log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR"] = field(
         default="INFO", metadata={"help": "Logging level for the experiment"}
     )
+    log_interval: int = field(
+        default=5, metadata={"help": "Number of updates between logging"}
+    )
+    tb_log_interval: int = field(
+        default=10, metadata={"help": "Number of updates between logging to tensorboard"}
+    )
+
 
     # Training parameters
     update_epochs: int = field(
