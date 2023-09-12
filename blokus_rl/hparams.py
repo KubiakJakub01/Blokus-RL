@@ -44,12 +44,12 @@ class HParams:
     )
 
     # Training parameters
-    num_epochs: int = field(
-        default=100, metadata={"help": "Number of epochs to train for"}
+    update_epochs: int = field(
+        default=4, metadata={"help": "Number of epochs to update the network"}
     )
     learning_rate: float = field(default=2.5e-4, metadata={"help": "Learning rate"})
     total_timesteps: int = field(
-        default=100_000, metadata={"help": "Total number of timesteps"}
+        default=500_000, metadata={"help": "Total number of timesteps"}
     )
     num_steps: int = field(
         default=128, metadata={"help": "Number of steps to run for each environment"}
@@ -62,11 +62,10 @@ class HParams:
         default=True, metadata={"help": "Whether to anneal the learning rate"}
     )
     gae: bool = field(
-        default=True, metadata={"help": "Whether to use generalized advantage estimation"}
+        default=True,
+        metadata={"help": "Whether to use generalized advantage estimation"},
     )
-    gamma: float = field(
-        default=0.99, metadata={"help": "Discount factor for rewards"}
-    )
+    gamma: float = field(default=0.99, metadata={"help": "Discount factor for rewards"})
     gae_lambda: float = field(
         default=0.95, metadata={"help": "Lambda parameter for GAE"}
     )
@@ -95,8 +94,8 @@ class HParams:
     def __post_init__(self):
         self.start_time = datetime.now().strftime("%Y%m%d_%H%M%S")
         self.run_name = f"{self.experiment_name}_{self.start_time}"
-        self.batch_size = int(self.num_envs * self.num_steps)
-        self.minibatch_size = int(self.batch_size // self.num_minibatches)
+        self.batch_size = self.num_envs * self.num_steps
+        self.minibatch_size = self.batch_size // self.num_minibatches
         self.num_updates = self.total_timesteps // self.batch_size
 
     def save(self, hparam_fp: Path) -> None:

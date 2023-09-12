@@ -36,3 +36,22 @@ class Memory:
         self.values = torch.zeros((self.hparams.num_steps, self.hparams.num_envs)).to(
             self.device
         )
+        self.advantages = torch.zeros(
+            (self.hparams.num_steps, self.hparams.num_envs)
+        ).to(self.device)
+        self.returns = torch.zeros((self.hparams.num_steps, self.hparams.num_envs)).to(
+            self.device
+        )
+
+    def get_flatten_batch(self):
+        """Return a flattened batch of data."""
+        return {
+            "obs": self.obs.reshape((-1,) + self.envs.single_observation_space.shape),
+            "logprobs": self.logprobs.reshape(-1),
+            "actions": self.actions.reshape(
+                (-1,) + self.envs.single_action_space.shape
+            ),
+            "advantages": self.advantages.reshape(-1),
+            "returns": self.returns.reshape(-1),
+            "values": self.values.reshape(-1),
+        }

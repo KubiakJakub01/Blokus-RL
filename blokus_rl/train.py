@@ -2,9 +2,10 @@
 import argparse
 from pathlib import Path
 
+
 from .hparams import load_hparams, HParams
 from .utils import LOG_INFO, seed, set_environ
-from .ppo import PPOTrainer
+from .ppo import Trainer
 
 
 def get_params():
@@ -20,7 +21,7 @@ def get_params():
 
 def train(hparams: HParams):
     """Train a model."""
-    trainer = PPOTrainer(hparams)
+    trainer = Trainer(hparams)
     trainer.train()
 
 

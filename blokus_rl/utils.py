@@ -18,9 +18,11 @@ handler.setFormatter(
 )
 logger.addHandler(handler)
 
+
 def LOG_DEBUG(*args, **kwargs):
     """Log an debug message."""
     logger.debug(*args, **kwargs)
+
 
 def LOG_INFO(*args, **kwargs):
     """Log an info message."""
@@ -50,7 +52,7 @@ def set_environ(hparams: HParams):
     logger.setLevel(hparams.log_level)
 
 
-def make_env(idx, hparams: HParams):
+def make_envs(idx, hparams: HParams):
     def _make_env():
         env = gym.make(hparams.gym_env, render_mode="rgb_array")
         env = gym.wrappers.RecordEpisodeStatistics(env)
