@@ -52,11 +52,10 @@ def set_environ(hparams: HParams):
 
 def make_env(idx, hparams: HParams):
     def _make_env():
-        env = gym.make(hparams.gym_env)
+        env = gym.make(hparams.gym_env, render_mode="rgb_array")
         env = gym.wrappers.RecordEpisodeStatistics(env)
         if hparams.capture_video:
             if idx == 0:
-                env = gym.make(hparams.gym_env, render_mode="rgb_array")
                 env = gym.wrappers.RecordVideo(
                     env, f"{hparams.log_dir}/{hparams.run_name}"
                 )

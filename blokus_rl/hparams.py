@@ -27,6 +27,7 @@ class HParams:
     experiment_name: str = field(
         default="blokus", metadata={"help": "Name of the experiment"}
     )
+    cuda: bool = field(default=True, metadata={"help": "Whether to use CUDA"})
     seed: int = field(default=42, metadata={"help": "Seed for the experiment"})
     num_envs: int = field(
         default=4, metadata={"help": "Number of parallel environments"}
@@ -53,9 +54,8 @@ class HParams:
     num_steps: int = field(
         default=128, metadata={"help": "Number of steps to run for each environment"}
     )
-    batch_size: int = field(default=256, metadata={"help": "Batch size"})
-    minibatch_size: int = field(
-        default=32, metadata={"help": "Minibatch size for gradient descent"}
+    num_minibatches: int = field(
+        default=4, metadata={"help": "Number of minibatches to split the batch into"}
     )
     eps: float = field(default=1e-5, metadata={"help": "Adam epsilon"})
     anneal_lr: bool = field(
@@ -95,7 +95,14 @@ class HParams:
     def __post_init__(self):
         self.start_time = datetime.now().strftime("%Y%m%d_%H%M%S")
         self.run_name = f"{self.experiment_name}_{self.start_time}"
+        self.batch_size = int(self.num_envs * self.num_steps)
+        self.minibatch_size = int(self.batch_size // self.num_minibatches)
         self.num_updates = self.total_timesteps // self.batch_size
+
+    def save(self, hparam_fp: Path) -> None:
+        """Save hyperparameters to a YAML file."""
+        with open(hparam_fp, "w", encoding="utf-8") as f:
+            yaml.dump(self.__dict__, f, default_flow_style=False)
 
 
 def load_hparams(hparam_fp: Path | None = None) -> HParams:

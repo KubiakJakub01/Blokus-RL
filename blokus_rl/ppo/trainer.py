@@ -23,7 +23,9 @@ class PPOTrainer:
     def __init__(self, hparams: HParams):
         """Initialize the trainer."""
         self.hparams = hparams
-        self.device = "cuda" if torch.cuda.is_available() else "cpu"
+        self.device = (
+            "cuda" if torch.cuda.is_available() and self.hparams.cuda else "cpu"
+        )
         self.envs = gym.vector.SyncVectorEnv(
             [make_env(i, hparams) for i in range(hparams.num_envs)]
         )
@@ -45,6 +47,10 @@ class PPOTrainer:
         self.writer = SummaryWriter(log_dir=hparams.log_dir)
         self.running_vals = self._reset_running_vals()
 
+        # Log the hparams
+        LOG_INFO("hparams: %s", self.hparams)
+        self.hparams.save(self.hparams.log_dir / "hparams.yaml")
+
         LOG_INFO("Using device: %s", self.device)
 
     def train(self):
@@ -53,9 +59,9 @@ class PPOTrainer:
         LOG_INFO(
             "Starting training at %s", datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         )
-        obs, _ = self.envs.reset()
-        self.next_obs = torch.Tensor(obs).to(self.device)
-        self.next_done = torch.zeros(self.hparams.num_envs).to(self.device)
+        obs, _ = self.envs.reset(seed=self.hparams.seed)
+        next_obs = torch.Tensor(obs).to(self.device)
+        next_done = torch.zeros(self.hparams.num_envs).to(self.device)
 
         for update in range(1, self.hparams.num_updates + 1):
             # Annealing the rate if instructed to do so.
@@ -63,16 +69,13 @@ class PPOTrainer:
                 self.optimizer.param_groups[0]["lr"] = self._compute_anneal_lr(update)
 
             # Perform a training step
-            self.next_obs, self.next_done = self._play_env()
+            next_obs, next_done = self._play_env(next_obs, next_done)
 
             # Compute advantages and returns
-            next_value = self.agent.get_value(self.next_obs).reshape(1, -1)
-            if self.hparams.gae:
-                advantages = self._compute_gae(next_value, self.next_done)
+            with torch.inference_mode():
+                next_value = self.agent.get_value(next_obs).reshape(1, -1)
+                advantages = self._compute_gae(next_value, next_done)
                 returns = advantages + self.memory.values
-            else:
-                returns = self._compute_returns(next_value, self.next_done)
-                advantages = returns - self.memory.values
 
             # flatten the batch
             b_obs = self.memory.obs.reshape(
@@ -104,7 +107,7 @@ class PPOTrainer:
                     logratio = newlogprob - b_logprobs[mb_inds]
                     ratio = logratio.exp()
 
-                    with torch.no_grad():
+                    with torch.inference_mode():
                         # calculate approx_kl http://joschu.net/blog/kl-approx.html
                         old_approx_kl = (-logratio).mean()
                         approx_kl = ((ratio - 1) - logratio).mean()
@@ -131,9 +134,14 @@ class PPOTrainer:
 
                     # Total loss
                     entropy_loss = entropy.mean()
-                    loss = self._compute_total_loss(
-                        pg_loss.detach(), entropy_loss, v_loss.detach()
+                    loss = loss = (
+                        pg_loss
+                        - self.hparams.ent_coef * entropy_loss
+                        + v_loss * self.hparams.vf_coef
                     )
+                    # loss = self._compute_total_loss(
+                    #     pg_loss.detach(), entropy_loss, v_loss.detach()
+                    # )
 
                     # Backpropagate
                     self.optimizer.zero_grad()
@@ -180,30 +188,30 @@ class PPOTrainer:
             )
 
             # Log the training progress
-            self._log()
+            # self._log()
+            print("SPS:", int(self.global_step / (time.time() - start_time)))
             self._log_to_tb()
 
-    def _play_env(self) -> tuple[torch.Tensor, torch.Tensor]:
+    def _play_env(self, next_obs, next_done) -> tuple[torch.Tensor, torch.Tensor]:
         """Play the environment for a number of steps."""
         for step in range(self.hparams.num_steps):
             self.global_step += 1 * self.hparams.num_envs
-            self.memory.obs[step] = self.next_obs
-            self.memory.dones[step] = self.next_done
+            self.memory.obs[step] = next_obs
+            self.memory.dones[step] = next_done
 
             # Get action and value from the agent
-            action, logproba, entropy, value = self._get_action_and_value(
-                self.memory.obs[step]
-            )
-            self.memory.values[step] = value.flatten()
+            with torch.inference_mode():
+                action, logproba, entropy, value = self.agent.get_action_and_value(next_obs)
+                self.memory.values[step] = value.flatten()
             self.memory.actions[step] = action
             self.memory.logprobs[step] = logproba
 
             # Step the environment
-            next_obs, reward, terminated, trunctate, info = self.envs.step(
+            next_obs, reward, terminated, _, info = self.envs.step(
                 action.cpu().numpy()
             )
             self.memory.rewards[step] = torch.tensor(reward).to(self.device).view(-1)
-            next_obs, next_done = (
+            next_obs, self.next_done = (
                 torch.Tensor(next_obs).to(self.device),
                 torch.Tensor(terminated).to(self.device),
             )
@@ -328,7 +336,6 @@ class PPOTrainer:
             )
         return advantages
 
-    @torch.inference_mode()
     def _compute_returns(
         self, next_value: torch.Tensor, next_done: torch.Tensor
     ) -> torch.Tensor:
@@ -404,12 +411,13 @@ class PPOTrainer:
     def _log_info(self, info: dict[str, Any]):
         for item in info.get("final_info", []):
             if item is not None and "episode" in item:
-                LOG_DEBUG(
-                    "global_step: %d | episodic_return: %d | episodic_length: %d",
-                    self.global_step,
-                    item["episode"]["r"],
-                    item["episode"]["l"],
-                )
+                print(f"global_step={self.global_step}, episodic_return={item['episode']['r']}")
+                # LOG_DEBUG(
+                #     "global_step: %d | episodic_return: %d | episodic_length: %d",
+                #     self.global_step,
+                #     item["episode"]["r"],
+                #     item["episode"]["l"],
+                # )
                 self._update_running_vals(
                     {
                         "episodic_return": item["episode"]["r"],
