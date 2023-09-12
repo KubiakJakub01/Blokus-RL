@@ -463,104 +463,26 @@ class Trainer:
         self.memory = Memory(self.hparams, self.envs, self.device)
 
     def train(self):
-        # ALGO Logic: Storage setup
-        # obs = torch.zeros(
-        #     (self.hparams.num_steps, self.hparams.num_envs)
-        #     + self.envs.single_observation_space.shape
-        # ).to(self.device)
-        # actions = torch.zeros(
-        #     (self.hparams.num_steps, self.hparams.num_envs)
-        #     + self.envs.single_action_space.shape
-        # ).to(self.device)
-        # logprobs = torch.zeros((self.hparams.num_steps, self.hparams.num_envs)).to(
-        #     self.device
-        # )
-        # rewards = torch.zeros((self.hparams.num_steps, self.hparams.num_envs)).to(
-        #     self.device
-        # )
-        # dones = torch.zeros((self.hparams.num_steps, self.hparams.num_envs)).to(
-        #     self.device
-        # )
-        # values = torch.zeros((self.hparams.num_steps, self.hparams.num_envs)).to(
-        #     self.device
-        # )
 
-        # TRY NOT TO MODIFY: start the game
-        global_step = 0
+        # Set the initial values
+        self.global_step = 0
         start_time = time.time()
         next_obs, _ = self.envs.reset()
         next_obs = torch.Tensor(next_obs).to(self.device)
         next_done = torch.zeros(self.hparams.num_envs).to(self.device)
-        num_updates = self.hparams.total_timesteps // self.hparams.batch_size
 
-        for update in range(1, num_updates + 1):
+        for update in range(1, self.hparams.num_updates + 1):
             # Annealing the rate if instructed to do so.
             if self.hparams.anneal_lr:
-                frac = 1.0 - (update - 1.0) / num_updates
-                lrnow = frac * self.hparams.learning_rate
-                self.optimizer.param_groups[0]["lr"] = lrnow
+                self.optimizer.param_groups[0]["lr"] = self._compute_anneal_lr(update)
 
-            for step in range(0, self.hparams.num_steps):
-                global_step += 1 * self.hparams.num_envs
-                self.memory.obs[step] = next_obs
-                self.memory.dones[step] = next_done
-
-                # ALGO LOGIC: action logic
-                with torch.no_grad():
-                    action, logprob, _, value = self.agent.get_action_and_value(
-                        next_obs
-                    )
-                    self.memory.values[step] = value.flatten()
-                self.memory.actions[step] = action
-                self.memory.logprobs[step] = logprob
-
-                # TRY NOT TO MODIFY: execute the game and log data.
-                next_obs, reward, terminated, _, info = self.envs.step(
-                    action.cpu().numpy()
-                )
-                self.memory.rewards[step] = torch.tensor(reward).to(self.device).view(-1)
-                next_obs, next_done = (
-                    torch.Tensor(next_obs).to(self.device),
-                    torch.Tensor(terminated).to(self.device),
-                )
-
-                for item in info.get("final_info", []):
-                    if item is not None and "episode" in item:
-                        print(
-                            f"global_step={global_step}, episodic_return={item['episode']['r']}"
-                        )
-                        self.writer.add_scalar(
-                            "charts/episodic_return", item["episode"]["r"], global_step
-                        )
-                        self.writer.add_scalar(
-                            "charts/episodic_length", item["episode"]["l"], global_step
-                        )
-                        break
+            # Play the environment for a number of steps
+            next_obs, next_done = self._play_env(next_obs, next_done)
 
             # bootstrap value if not done
-            with torch.no_grad():
+            with torch.inference_mode():
                 next_value = self.agent.get_value(next_obs).reshape(1, -1)
-                advantages = torch.zeros_like(self.memory.rewards).to(self.device)
-                lastgaelam = 0
-                for t in reversed(range(self.hparams.num_steps)):
-                    if t == self.hparams.num_steps - 1:
-                        nextnonterminal = 1.0 - next_done
-                        nextvalues = next_value
-                    else:
-                        nextnonterminal = 1.0 - self.memory.dones[t + 1]
-                        nextvalues = self.memory.values[t + 1]
-                    delta = (
-                        self.memory.rewards[t]
-                        + self.hparams.gamma * nextvalues * nextnonterminal
-                        - self.memory.values[t]
-                    )
-                    advantages[t] = lastgaelam = (
-                        delta
-                        + self.hparams.gamma
-                        * self.hparams.gae_lambda
-                        * nextnonterminal
-                        * lastgaelam
-                    )
+                advantages = self._compute_gae(next_value, next_done)
                 returns = advantages + self.memory.values
 
             # flatten the batch
@@ -653,23 +575,118 @@ class Trainer:
 
             # TRY NOT TO MODIFY: record rewards for plotting purposes
             self.writer.add_scalar(
-                "charts/learning_rate", self.optimizer.param_groups[0]["lr"], global_step
+                "charts/learning_rate", self.optimizer.param_groups[0]["lr"], self.global_step
             )
-            self.writer.add_scalar("losses/value_loss", v_loss.item(), global_step)
-            self.writer.add_scalar("losses/policy_loss", pg_loss.item(), global_step)
-            self.writer.add_scalar("losses/entropy", entropy_loss.item(), global_step)
+            self.writer.add_scalar("losses/value_loss", v_loss.item(), self.global_step)
+            self.writer.add_scalar("losses/policy_loss", pg_loss.item(), self.global_step)
+            self.writer.add_scalar("losses/entropy", entropy_loss.item(), self.global_step)
             self.writer.add_scalar(
-                "losses/old_approx_kl", old_approx_kl.item(), global_step
+                "losses/old_approx_kl", old_approx_kl.item(), self.global_step
             )
-            self.writer.add_scalar("losses/approx_kl", approx_kl.item(), global_step)
-            self.writer.add_scalar("losses/clipfrac", np.mean(clipfracs), global_step)
+            self.writer.add_scalar("losses/approx_kl", approx_kl.item(), self.global_step)
+            self.writer.add_scalar("losses/clipfrac", np.mean(clipfracs), self.global_step)
             self.writer.add_scalar(
-                "losses/explained_variance", explained_var, global_step
+                "losses/explained_variance", explained_var, self.global_step
             )
-            print("SPS:", int(global_step / (time.time() - start_time)))
+            print("SPS:", int(self.global_step / (time.time() - start_time)))
             self.writer.add_scalar(
-                "charts/SPS", int(global_step / (time.time() - start_time)), global_step
+                "charts/SPS", int(self.global_step / (time.time() - start_time)), self.global_step
             )
 
         self.envs.close()
         self.writer.close()
+
+
+    def _compute_anneal_lr(self, update: int) -> float:
+        """Compute the annealed learning rate.
+
+        Anneals learning rate is computed as:
+        `lr = lr_0 * (1 - (update - 1) / num_updates)`
+
+        hparams:
+            update: Current update step.
+        
+        Returns:
+            Annealed learning rate."""
+        frac = 1.0 - (update - 1.0) / self.hparams.num_updates
+        return frac * self.hparams.learning_rate
+    
+    def _play_env(self, next_obs, next_done) -> tuple[torch.Tensor, torch.Tensor]:
+        """Play the environment for a number of steps."""
+        for step in range(self.hparams.num_steps):
+            self.global_step += 1 * self.hparams.num_envs
+            self.memory.obs[step] = next_obs
+            self.memory.dones[step] = next_done
+
+            # Get action and value from the agent
+            with torch.inference_mode():
+                action, logproba, _, value = self.agent.get_action_and_value(
+                    next_obs
+                )
+                self.memory.values[step] = value.flatten()
+            self.memory.actions[step] = action
+            self.memory.logprobs[step] = logproba
+
+            # Step the environment
+            next_obs, reward, terminated, _, info = self.envs.step(action.cpu().numpy())
+            self.memory.rewards[step] = torch.tensor(reward).to(self.device).view(-1)
+            next_obs, next_done = (
+                torch.Tensor(next_obs).to(self.device),
+                torch.Tensor(terminated).to(self.device),
+            )
+
+            for item in info.get("final_info", []):
+                if item is not None and "episode" in item:
+                    print(
+                        f"global_step={self.global_step}, episodic_return={item['episode']['r']}"
+                    )
+                    self.writer.add_scalar(
+                        "charts/episodic_return", item["episode"]["r"], self.global_step
+                    )
+                    self.writer.add_scalar(
+                        "charts/episodic_length", item["episode"]["l"], self.global_step
+                    )
+                    break
+
+        return next_obs, next_done
+
+    def _compute_gae(self, next_value, next_done) -> torch.Tensor:
+        advantages = torch.zeros_like(self.memory.rewards).to(self.device)
+        lastgaelam = 0
+        for t in reversed(range(self.hparams.num_steps)):
+            if t == self.hparams.num_steps - 1:
+                nextnonterminal = 1.0 - next_done
+                nextvalues = next_value
+            else:
+                nextnonterminal = 1.0 - self.memory.dones[t + 1]
+                nextvalues = self.memory.values[t + 1]
+            delta = (
+                self.memory.rewards[t]
+                + self.hparams.gamma * nextvalues * nextnonterminal
+                - self.memory.values[t]
+            )
+            advantages[t] = lastgaelam = (
+                delta
+                + self.hparams.gamma
+                * self.hparams.gae_lambda
+                * nextnonterminal
+                * lastgaelam
+            )
+        return advantages
+    
+    # def _optimize_agent(self):
+    #     b_inds = np.arange(self.hparams.batch_size)
+    #     clipfracs = []
+    #     for epoch in range(self.hparams.update_epochs):
+    #             np.random.shuffle(b_inds)
+    #             for start in range(
+    #                 0, self.hparams.batch_size, self.hparams.minibatch_size
+    #             ):
+    #                 end = start + self.hparams.minibatch_size
+    #                 mb_inds = b_inds[start:end]
+
+    #                 _, newlogprob, entropy, newvalue = self.agent.get_action_and_value(
+    #                     b_obs[mb_inds], b_actions.long()[mb_inds]
+    #                 )
+    #                 logratio = newlogprob - b_logprobs[mb_inds]
+    #                 ratio = logratio.exp()
