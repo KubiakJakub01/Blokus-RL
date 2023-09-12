@@ -460,29 +460,30 @@ class Trainer:
         self.optimizer = optim.Adam(
             self.agent.parameters(), lr=self.hparams.learning_rate, eps=self.hparams.eps
         )
+        self.memory = Memory(self.hparams, self.envs, self.device)
 
     def train(self):
         # ALGO Logic: Storage setup
-        obs = torch.zeros(
-            (self.hparams.num_steps, self.hparams.num_envs)
-            + self.envs.single_observation_space.shape
-        ).to(self.device)
-        actions = torch.zeros(
-            (self.hparams.num_steps, self.hparams.num_envs)
-            + self.envs.single_action_space.shape
-        ).to(self.device)
-        logprobs = torch.zeros((self.hparams.num_steps, self.hparams.num_envs)).to(
-            self.device
-        )
-        rewards = torch.zeros((self.hparams.num_steps, self.hparams.num_envs)).to(
-            self.device
-        )
-        dones = torch.zeros((self.hparams.num_steps, self.hparams.num_envs)).to(
-            self.device
-        )
-        values = torch.zeros((self.hparams.num_steps, self.hparams.num_envs)).to(
-            self.device
-        )
+        # obs = torch.zeros(
+        #     (self.hparams.num_steps, self.hparams.num_envs)
+        #     + self.envs.single_observation_space.shape
+        # ).to(self.device)
+        # actions = torch.zeros(
+        #     (self.hparams.num_steps, self.hparams.num_envs)
+        #     + self.envs.single_action_space.shape
+        # ).to(self.device)
+        # logprobs = torch.zeros((self.hparams.num_steps, self.hparams.num_envs)).to(
+        #     self.device
+        # )
+        # rewards = torch.zeros((self.hparams.num_steps, self.hparams.num_envs)).to(
+        #     self.device
+        # )
+        # dones = torch.zeros((self.hparams.num_steps, self.hparams.num_envs)).to(
+        #     self.device
+        # )
+        # values = torch.zeros((self.hparams.num_steps, self.hparams.num_envs)).to(
+        #     self.device
+        # )
 
         # TRY NOT TO MODIFY: start the game
         global_step = 0
@@ -501,23 +502,23 @@ class Trainer:
 
             for step in range(0, self.hparams.num_steps):
                 global_step += 1 * self.hparams.num_envs
-                obs[step] = next_obs
-                dones[step] = next_done
+                self.memory.obs[step] = next_obs
+                self.memory.dones[step] = next_done
 
                 # ALGO LOGIC: action logic
                 with torch.no_grad():
                     action, logprob, _, value = self.agent.get_action_and_value(
                         next_obs
                     )
-                    values[step] = value.flatten()
-                actions[step] = action
-                logprobs[step] = logprob
+                    self.memory.values[step] = value.flatten()
+                self.memory.actions[step] = action
+                self.memory.logprobs[step] = logprob
 
                 # TRY NOT TO MODIFY: execute the game and log data.
                 next_obs, reward, terminated, _, info = self.envs.step(
                     action.cpu().numpy()
                 )
-                rewards[step] = torch.tensor(reward).to(self.device).view(-1)
+                self.memory.rewards[step] = torch.tensor(reward).to(self.device).view(-1)
                 next_obs, next_done = (
                     torch.Tensor(next_obs).to(self.device),
                     torch.Tensor(terminated).to(self.device),
@@ -539,19 +540,19 @@ class Trainer:
             # bootstrap value if not done
             with torch.no_grad():
                 next_value = self.agent.get_value(next_obs).reshape(1, -1)
-                advantages = torch.zeros_like(rewards).to(self.device)
+                advantages = torch.zeros_like(self.memory.rewards).to(self.device)
                 lastgaelam = 0
                 for t in reversed(range(self.hparams.num_steps)):
                     if t == self.hparams.num_steps - 1:
                         nextnonterminal = 1.0 - next_done
                         nextvalues = next_value
                     else:
-                        nextnonterminal = 1.0 - dones[t + 1]
-                        nextvalues = values[t + 1]
+                        nextnonterminal = 1.0 - self.memory.dones[t + 1]
+                        nextvalues = self.memory.values[t + 1]
                     delta = (
-                        rewards[t]
+                        self.memory.rewards[t]
                         + self.hparams.gamma * nextvalues * nextnonterminal
-                        - values[t]
+                        - self.memory.values[t]
                     )
                     advantages[t] = lastgaelam = (
                         delta
@@ -560,15 +561,15 @@ class Trainer:
                         * nextnonterminal
                         * lastgaelam
                     )
-                returns = advantages + values
+                returns = advantages + self.memory.values
 
             # flatten the batch
-            b_obs = obs.reshape((-1,) + self.envs.single_observation_space.shape)
-            b_logprobs = logprobs.reshape(-1)
-            b_actions = actions.reshape((-1,) + self.envs.single_action_space.shape)
+            b_obs = self.memory.obs.reshape((-1,) + self.envs.single_observation_space.shape)
+            b_logprobs = self.memory.logprobs.reshape(-1)
+            b_actions = self.memory.actions.reshape((-1,) + self.envs.single_action_space.shape)
             b_advantages = advantages.reshape(-1)
             b_returns = returns.reshape(-1)
-            b_values = values.reshape(-1)
+            b_values = self.memory.values.reshape(-1)
 
             # Optimizing the policy and value network
             b_inds = np.arange(self.hparams.batch_size)
