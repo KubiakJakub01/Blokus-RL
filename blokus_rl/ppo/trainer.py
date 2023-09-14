@@ -1,7 +1,6 @@
 """Module with trainer for class."""
 import time
 from collections import defaultdict
-from datetime import datetime
 from typing import Any
 from statistics import mean
 
@@ -54,7 +53,7 @@ class Trainer:
             if self.hparams.anneal_lr:
                 self.optimizer.param_groups[0]["lr"] = self._compute_anneal_lr(update)
 
-            # Play the environment for a number of steps
+            # Play the environment for a number of s teps
             next_obs, next_done = self._play_env(next_obs, next_done)
 
             # bootstrap value if not done

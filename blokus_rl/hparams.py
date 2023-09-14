@@ -46,9 +46,9 @@ class HParams:
         default=5, metadata={"help": "Number of updates between logging"}
     )
     tb_log_interval: int = field(
-        default=10, metadata={"help": "Number of updates between logging to tensorboard"}
+        default=10,
+        metadata={"help": "Number of updates between logging to tensorboard"},
     )
-
 
     # Training parameters
     update_epochs: int = field(
