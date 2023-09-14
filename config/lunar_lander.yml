@@ -1,0 +1,6 @@
+gym_env: LunarLander-v2
+experiment_name: LunarLander
+wanda: true
+wandb_project_name: sandboxRL
+capture_video: false
+cuda: false
