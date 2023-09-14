@@ -38,6 +38,8 @@ class Trainer:
         self.memory = Memory(self.hparams, self.envs, self.device)
         self.running_vals = self._reset_running_vals()
 
+        LOG_INFO("Trainer initialized with device: %s", self.device)
+
     def train(self):
         """Train the agent."""
 
@@ -275,7 +277,7 @@ class Trainer:
             LOG_INFO(
                 "global_step: %d | episodic_return: %.2f | loss: %.2f | SPS: %d",
                 self.global_step,
-                mean(self.running_vals["charts/episode_return"]),
+                mean(self.running_vals["charts/episode_return"]) if len(self.running_vals["charts/episode_return"]) > 0 else 0,
                 mean(self.running_vals["losses/loss"]),
                 mean(self.running_vals["charts/SPS"]),
             )
