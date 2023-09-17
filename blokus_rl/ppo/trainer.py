@@ -278,19 +278,22 @@ class Trainer:
 
     def _log(self, update: int):
         """Log the running values."""
-        if update % self.hparams.log_interval == 0:
-            LOG_INFO(
-                "global_step: %d | episodic_return: %.2f | loss: %.2f | SPS: %d",
-                self.global_step,
-                mean(self.running_vals["charts/episode_return"]) if len(self.running_vals["charts/episode_return"]) > 0 else 0,
-                mean(self.running_vals["losses/loss"]),
-                mean(self.running_vals["charts/SPS"]),
-            )
+        if self.hparams.logging:
+            if update % self.hparams.log_interval == 0:
+                LOG_INFO(
+                    "global_step: %d | episodic_return: %.2f | loss: %.2f | SPS: %d",
+                    self.global_step,
+                    mean(self.running_vals["charts/episode_return"]) if len(self.running_vals["charts/episode_return"]) > 0 else 0,
+                    mean(self.running_vals["losses/loss"]),
+                    mean(self.running_vals["charts/SPS"]),
+                )
 
-        # Log the running values
-        if update % self.hparams.tb_log_interval == 0:
-            for key, value in self.running_vals.items():
-                self.writer.add_scalar(key, mean(value), self.global_step)
+            # Log the running values
+            if update % self.hparams.tb_log_interval == 0:
+                for key, value in self.running_vals.items():
+                    self.writer.add_scalar(key, mean(value), self.global_step)
+                self.running_vals = self._reset_running_vals()
+        else:
             self.running_vals = self._reset_running_vals()
 
     @property

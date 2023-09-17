@@ -49,6 +49,9 @@ class HParams:
         default=10,
         metadata={"help": "Number of updates between logging to tensorboard"},
     )
+    logging: bool = field(
+        default=True, metadata={"help": "Whether to log to stdout and tensorboard"}
+    )
 
     # Training parameters
     update_epochs: int = field(

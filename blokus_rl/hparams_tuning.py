@@ -25,10 +25,11 @@ def objective(trial: Trial) -> float:
     # Sample hyperparameters
     hparams_dict = {
         "gym_env": GYM_ENV,
+        "total_timesteps": 10_000,
+        "logging": False,
         "num_envs": trial.suggest_int("num_envs", 1, 32),
         "update_epochs": trial.suggest_int("update_epochs", 1, 10),
         "learning_rate": trial.suggest_float("learning_rate", 1e-5, 1e-2, log=True),
-        "total_timesteps": trial.suggest_int("total_timesteps", 1000, 1e6, log=True),
         "num_steps": trial.suggest_int("num_steps", 1, 128),
         "gamma": trial.suggest_float("gamma", 0.9, 0.999),
         "gae_lambda": trial.suggest_float("gae_lambda", 0.9, 0.999),
@@ -84,7 +85,7 @@ def main() -> None:
     )
     parser.add_argument(
         "--direction",
-        type=Literal["minimize", "maximize"],
+        type=str,
         default="maximize",
         help="Direction to optimize for.",
     )
