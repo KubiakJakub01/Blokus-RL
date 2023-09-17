@@ -13,47 +13,54 @@ def layer_init(layer, std=np.sqrt(2), bias_const=0.0):
     return layer
 
 
-class Critic(nn.Module):
-    def __init__(self, envs, hparams: HParams):
-        super(Critic, self).__init__()
-        self.d_model = hparams.d_model
-        self.critic = nn.Sequential(
-            layer_init(
-                nn.Linear(np.array(envs.single_observation_space.shape).prod(), self.d_model)
-            ),
+class ToyModel(nn.Module):
+    def __init__(self, input_dim, hidden_dim, output_dim, std=0.01):
+        super(ToyModel, self).__init__()
+        self.net = nn.Sequential(
+            layer_init(nn.Linear(input_dim, hidden_dim)),
             nn.Tanh(),
-            layer_init(nn.Linear(self.d_model, self.d_model)),
+            layer_init(nn.Linear(hidden_dim, hidden_dim)),
             nn.Tanh(),
-            layer_init(nn.Linear(self.d_model, 1), std=1.0),
+            layer_init(nn.Linear(hidden_dim, output_dim), std),
         )
 
     def forward(self, x):
-        return self.critic(x)
+        x = self.net(x)
+        return x
 
 
-class Actor(nn.Module):
-    def __init__(self, envs, hparams: HParams):
-        super(Actor, self).__init__()
-        self.d_model = hparams.d_model
-        self.actor = nn.Sequential(
-            layer_init(
-                nn.Linear(np.array(envs.single_observation_space.shape).prod(), self.d_model)
-            ),
-            nn.Tanh(),
-            layer_init(nn.Linear(self.d_model, self.d_model)),
-            nn.Tanh(),
-            layer_init(nn.Linear(self.d_model, envs.single_action_space.n), std=0.01),
+class MLP(nn.Module):
+    def __init__(self, input_dim, hidden_dim, output_dim, dropout=0.1, std=0.01):
+        super().__init__()
+
+        self.net = nn.Sequential(
+            layer_init(nn.Linear(input_dim, hidden_dim)),
+            nn.Dropout(dropout),
+            nn.PReLU(),
+            layer_init(nn.Linear(hidden_dim, hidden_dim)),
+            nn.Dropout(dropout),
+            nn.PReLU(),
+            layer_init(nn.Linear(hidden_dim, output_dim), std),
         )
 
     def forward(self, x):
-        return self.actor(x)
+        x = self.net(x)
+        return x
 
 
 class Agent(nn.Module):
     def __init__(self, envs, hparams: HParams):
         super(Agent, self).__init__()
-        self.critic = Critic(envs, hparams)
-        self.actor = Actor(envs, hparams)
+        input_dim = np.array(envs.single_observation_space.shape).prod()
+        output_dim = envs.single_action_space.n
+        self.d_model = hparams.d_model
+
+        if hparams.model_type == "mlp":
+            self.actor = MLP(input_dim, self.d_model, output_dim, hparams.dropout, std=0.01)
+            self.critic = MLP(input_dim, self.d_model, 1, hparams.dropout, std=1.0)
+        elif hparams.model_type == "toy":
+            self.actor = ToyModel(input_dim, self.d_model, output_dim, std=0.01)
+            self.critic = ToyModel(input_dim, self.d_model, 1, std=1.0)
 
     def get_value(self, x):
         return self.critic(x)

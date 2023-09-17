@@ -53,6 +53,17 @@ class HParams:
         default=True, metadata={"help": "Whether to log to stdout and tensorboard"}
     )
 
+    # Model parameters
+    model_type: Literal["mlp", "toy"] = field(
+        default="mlp", metadata={"help": "Type of model to use"}
+    )
+    dropout: float = field(
+        default=0.1, metadata={"help": "Dropout probability for MLP"}
+    )
+    d_model: int = field(
+        default=64, metadata={"help": "Dimensionality of the model"}
+    )
+
     # Training parameters
     update_epochs: int = field(
         default=4, metadata={"help": "Number of epochs to update the network"}
@@ -99,9 +110,6 @@ class HParams:
     )
     target_kl: float = field(
         default=0.01, metadata={"help": "Target KL divergence for PPO"}
-    )
-    d_model: int = field(
-        default=64, metadata={"help": "Dimensionality of the model"}
     )
 
     def __post_init__(self):
