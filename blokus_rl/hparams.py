@@ -54,8 +54,8 @@ class HParams:
     )
 
     # Model parameters
-    model_type: Literal["mlp", "toy"] = field(
-        default="mlp", metadata={"help": "Type of model to use"}
+    save_interval: int = field(
+        default=1000, metadata={"help": "Number of updates between saving checkpoints"}
     )
     dropout: float = field(
         default=0.1, metadata={"help": "Dropout probability for MLP"}

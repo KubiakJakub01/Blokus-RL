@@ -82,6 +82,14 @@ class Trainer:
             # Log the running values
             self._log(update)
 
+            # Save the model
+            if update % self.hparams.save_interval == 0:
+                self._save_checpoint()
+
+        # Save the final model
+        self._save_checpoint()
+
+        # Close the environment
         self.envs.close()
         self.writer.close()
 
@@ -295,6 +303,13 @@ class Trainer:
                 self.running_vals = self._reset_running_vals()
         else:
             self.running_vals = self._reset_running_vals()
+
+    def _save_checpoint(self):
+        """Save the model."""
+        torch.save(
+            self.agent.state_dict(),
+            self.hparams.log_dir / f"model_{self.global_step}.pt",
+        )
 
     @property
     def mean_episode_reward(self) -> float:
