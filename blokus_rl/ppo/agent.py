@@ -1,8 +1,10 @@
 """Deep neural network model for PPO algorithm."""
+import numpy as np
 import torch
 import torch.nn as nn
 from torch.distributions.categorical import Categorical
-import numpy as np
+
+from ..hparams import HParams
 
 
 def layer_init(layer, std=np.sqrt(2), bias_const=0.0):
@@ -12,16 +14,17 @@ def layer_init(layer, std=np.sqrt(2), bias_const=0.0):
 
 
 class Critic(nn.Module):
-    def __init__(self, envs):
+    def __init__(self, envs, hparams: HParams):
         super(Critic, self).__init__()
+        self.d_model = hparams.d_model
         self.critic = nn.Sequential(
             layer_init(
-                nn.Linear(np.array(envs.single_observation_space.shape).prod(), 64)
+                nn.Linear(np.array(envs.single_observation_space.shape).prod(), self.d_model)
             ),
             nn.Tanh(),
-            layer_init(nn.Linear(64, 64)),
+            layer_init(nn.Linear(self.d_model, self.d_model)),
             nn.Tanh(),
-            layer_init(nn.Linear(64, 1), std=1.0),
+            layer_init(nn.Linear(self.d_model, 1), std=1.0),
         )
 
     def forward(self, x):
@@ -29,16 +32,17 @@ class Critic(nn.Module):
 
 
 class Actor(nn.Module):
-    def __init__(self, envs):
+    def __init__(self, envs, hparams: HParams):
         super(Actor, self).__init__()
+        self.d_model = hparams.d_model
         self.actor = nn.Sequential(
             layer_init(
-                nn.Linear(np.array(envs.single_observation_space.shape).prod(), 64)
+                nn.Linear(np.array(envs.single_observation_space.shape).prod(), self.d_model)
             ),
             nn.Tanh(),
-            layer_init(nn.Linear(64, 64)),
+            layer_init(nn.Linear(self.d_model, self.d_model)),
             nn.Tanh(),
-            layer_init(nn.Linear(64, envs.single_action_space.n), std=0.01),
+            layer_init(nn.Linear(self.d_model, envs.single_action_space.n), std=0.01),
         )
 
     def forward(self, x):
@@ -46,10 +50,10 @@ class Actor(nn.Module):
 
 
 class Agent(nn.Module):
-    def __init__(self, envs):
+    def __init__(self, envs, hparams: HParams):
         super(Agent, self).__init__()
-        self.critic = Critic(envs)
-        self.actor = Actor(envs)
+        self.critic = Critic(envs, hparams)
+        self.actor = Actor(envs, hparams)
 
     def get_value(self, x):
         return self.critic(x)

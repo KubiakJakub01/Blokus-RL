@@ -97,6 +97,9 @@ class HParams:
     target_kl: float = field(
         default=0.01, metadata={"help": "Target KL divergence for PPO"}
     )
+    d_model: int = field(
+        default=64, metadata={"help": "Dimensionality of the model"}
+    )
 
     def __post_init__(self):
         self.start_time = datetime.now().strftime("%Y%m%d_%H%M%S")
