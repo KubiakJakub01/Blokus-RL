@@ -1,7 +1,7 @@
 """Script to tune hyperparameters with Optuna."""
 import argparse
-import logging
 from pathlib import Path
+from typing import Literal
 
 import optuna
 import yaml
@@ -11,6 +11,7 @@ from .hparams import HParams
 from .utils import LOG_INFO
 from .ppo import Trainer
 
+GYM_ENV = "LunarLander-v2"
 
 def objective(trial: Trial) -> float:
     """Objective function for Optuna to optimize.
@@ -23,19 +24,19 @@ def objective(trial: Trial) -> float:
     """
     # Sample hyperparameters
     hparams_dict = {
+        "gym_env": GYM_ENV,
         "num_envs": trial.suggest_int("num_envs", 1, 8),
+        "update_epochs": trial.suggest_int("update_epochs", 1, 10),
         "learning_rate": trial.suggest_float("learning_rate", 1e-5, 1e-2, log=True),
         "total_timesteps": trial.suggest_int("total_timesteps", 1000, 1e6, log=True),
         "num_steps": trial.suggest_int("num_steps", 1, 128),
-        "update_epochs": trial.suggest_int("update_epochs", 1, 10),
-        "d_model": trial.suggest_int("d_model", 16, 512, log=True),
         "gamma": trial.suggest_float("gamma", 0.9, 0.999),
         "gae_lambda": trial.suggest_float("gae_lambda", 0.9, 0.999),
-        "clip_range": trial.suggest_float("clip_range", 0.1, 0.5),
-        "vf_coef": trial.suggest_float("vf_coef", 0.1, 1.0),
+        "clip_coef": trial.suggest_float("clip_coef", 0.1, 0.5),
         "ent_coef": trial.suggest_float("ent_coef", 0.0, 0.01),
+        "vf_coef": trial.suggest_float("vf_coef", 0.1, 1.0),
         "max_grad_norm": trial.suggest_float("max_grad_norm", 0.1, 1.0),
-        "seed": trial.suggest_int("seed", 0, 1000),
+        "d_model": trial.suggest_int("d_model", 16, 512, log=True)
     }
 
     # Create hparams object
@@ -58,16 +59,22 @@ def main() -> None:
         description="Script to tune hyperparameters with Optuna."
     )
     parser.add_argument(
-        "--n_trials",
-        type=int,
-        default=100,
-        help="Number of trials to run.",
+        "--n_trials", type=int, default=100, help="Number of trials to run."
     )
     parser.add_argument(
-        "--study_name",
-        type=str,
-        default="ppo",
-        help="Name of the Optuna study.",
+        "--show_progress_bar",
+        type=bool,
+        default=True,
+        help="Whether to show a progress bar for Optuna.",
+    )
+    parser.add_argument(
+        "--n_jobs",
+        type=int,
+        default=1,
+        help="Number of parallel jobs to run for Optuna.",
+    )
+    parser.add_argument(
+        "--study_name", type=str, default="ppo", help="Name of the Optuna study."
     )
     parser.add_argument(
         "--storage",
@@ -76,10 +83,10 @@ def main() -> None:
         help="Database URL for Optuna to store results.",
     )
     parser.add_argument(
-        "--pruner",
+        "--direction",
         type=str,
-        default="median",
-        help="Pruner to use for Optuna.",
+        default=Literal["minimize", "maximize"],
+        help="Direction to optimize for.",
     )
     parser.add_argument(
         "--pruner_n_startup_trials",
@@ -105,85 +112,6 @@ def main() -> None:
         default=1,
         help="Minimum number of trials to run before pruning begins.",
     )
-    parser.add_argument(
-        "--pruner_n_max_trials",
-        type=int,
-        default=100,
-        help="Maximum number of trials to run before pruning begins.",
-    )
-    parser.add_argument(
-        "--pruner_n_jobs",
-        type=int,
-        default=1,
-        help="Number of parallel jobs to run for pruning.",
-    )
-    parser.add_argument(
-        "--pruner_n_points",
-        type=int,
-        default=100,
-        help="Number of points to sample for pruning.",
-    )
-    parser.add_argument(
-        "--pruner_n_quantiles",
-        type=int,
-        default=100,
-        help="Number of quantiles to sample for pruning.",
-    )
-    parser.add_argument(
-        "--pruner_bandwidth",
-        type=float,
-        default=1.0,
-        help="Bandwidth for kernel density estimation for pruning.",
-    )
-    parser.add_argument(
-        "--pruner_multivariate",
-        type=bool,
-        default=False,
-        help="Whether to use multivariate kernel density estimation for pruning.",
-    )
-    parser.add_argument(
-        "--pruner_censoring",
-        type=bool,
-        default=True,
-        help="Whether to use censoring for pruning.",
-    )
-    parser.add_argument(
-        "--pruner_independent_coords",
-        type=bool,
-        default=False,
-        help="Whether to use independent coordinates for pruning.",
-    )
-    parser.add_argument(
-        "--pruner_early_stopping",
-        type=bool,
-        default=True,
-        help="Whether to use early stopping for pruning.",
-    )
-    parser.add_argument(
-        "--pruner_pure",
-        type=bool,
-        default=False,
-        help="Whether to use pure Python for pruning.",
-    )
-    parser.add_argument(
-        "--pruner_storage",
-        type=str,
-        default=None,
-        help="Database URL for Optuna to store pruning results.",
-    )
-    parser.add_argument(
-        "--pruner_study_name",
-        type=str,
-        default=None,
-        help="Name of the Optuna study for pruning.",
-    )
-    parser.add_argument(
-        "--pruner_direction",
-        type=str,
-        default="minimize",
-        help="Direction to optimize for pruning.",
-    )
-
     args = parser.parse_args()
 
     # Create Optuna study
@@ -191,30 +119,22 @@ def main() -> None:
         study_name=args.study_name,
         storage=args.storage,
         load_if_exists=True,
-        direction="maximize",
+        direction=args.direction,
         pruner=optuna.pruners.MedianPruner(
             n_startup_trials=args.pruner_n_startup_trials,
             n_warmup_steps=args.pruner_n_warmup_steps,
             interval_steps=args.pruner_interval_steps,
             n_min_trials=args.pruner_n_min_trials,
-            n_max_trials=args.pruner_n_max_trials,
-            n_jobs=args.pruner_n_jobs,
-            n_points=args.pruner_n_points,
-            n_quantiles=args.pruner_n_quantiles,
-            bandwidth=args.pruner_bandwidth,
-            multivariate=args.pruner_multivariate,
-            censoring=args.pruner_censoring,
-            independent_coords=args.pruner_independent_coords,
-            early_stopping=args.pruner_early_stopping,
-            pure=args.pruner_pure,
-            storage=args.pruner_storage,
-            study_name=args.pruner_study_name,
-            direction=args.pruner_direction,
         ),
     )
 
     # Run trials
-    study.optimize(objective, n_trials=args.n_trials)
+    study.optimize(
+        objective,
+        n_trials=args.n_trials,
+        show_progress_bar=args.show_progress_bar,
+        n_jobs=args.n_jobs,
+    )
 
     # Print best trial
     LOG_INFO(f"Best trial: {study.best_trial.value}")
@@ -231,6 +151,6 @@ def main() -> None:
     with open(best_trial_params_fp, "w", encoding="utf-8") as f:
         yaml.dump(study.best_trial.params, f, default_flow_style=False)
 
-    
+
 if __name__ == "__main__":
     main()
