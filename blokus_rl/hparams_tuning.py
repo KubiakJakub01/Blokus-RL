@@ -25,7 +25,7 @@ def objective(trial: Trial) -> float:
     # Sample hyperparameters
     hparams_dict = {
         "gym_env": GYM_ENV,
-        "num_envs": trial.suggest_int("num_envs", 1, 8),
+        "num_envs": trial.suggest_int("num_envs", 1, 32),
         "update_epochs": trial.suggest_int("update_epochs", 1, 10),
         "learning_rate": trial.suggest_float("learning_rate", 1e-5, 1e-2, log=True),
         "total_timesteps": trial.suggest_int("total_timesteps", 1000, 1e6, log=True),
@@ -34,8 +34,8 @@ def objective(trial: Trial) -> float:
         "gae_lambda": trial.suggest_float("gae_lambda", 0.9, 0.999),
         "clip_coef": trial.suggest_float("clip_coef", 0.1, 0.5),
         "ent_coef": trial.suggest_float("ent_coef", 0.0, 0.01),
-        "vf_coef": trial.suggest_float("vf_coef", 0.1, 1.0),
-        "max_grad_norm": trial.suggest_float("max_grad_norm", 0.1, 1.0),
+        "vf_coef": trial.suggest_float("vf_coef", 0.1, 0.5),
+        "max_grad_norm": trial.suggest_float("max_grad_norm", 0.1, 0.5),
         "d_model": trial.suggest_int("d_model", 16, 512, log=True)
     }
 
@@ -84,8 +84,8 @@ def main() -> None:
     )
     parser.add_argument(
         "--direction",
-        type=str,
-        default=Literal["minimize", "maximize"],
+        type=Literal["minimize", "maximize"],
+        default="maximize",
         help="Direction to optimize for.",
     )
     parser.add_argument(

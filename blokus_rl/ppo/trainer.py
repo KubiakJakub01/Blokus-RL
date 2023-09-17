@@ -14,7 +14,7 @@ from torch.utils.tensorboard import SummaryWriter
 from .agent import Agent
 from .memory import Memory
 from ..hparams import HParams
-from ..utils import LOG_INFO, make_envs
+from ..utils import LOG_INFO, LOG_WARNING, make_envs
 
 
 class Trainer:
@@ -31,7 +31,7 @@ class Trainer:
         self.envs = gym.vector.SyncVectorEnv(
             [make_envs(i, self.hparams) for i in range(self.hparams.num_envs)]
         )
-        self.agent = Agent(self.envs).to(self.device)
+        self.agent = Agent(self.envs, self.hparams).to(self.device)
         self.optimizer = optim.Adam(
             self.agent.parameters(), lr=self.hparams.learning_rate, eps=self.hparams.eps
         )
@@ -296,4 +296,7 @@ class Trainer:
     @property
     def mean_episode_reward(self) -> float:
         """Mean episode reward."""
+        if self._total_episodes == 0:
+            LOG_WARNING("No episodes were played.")
+            return 0
         return self._total_episodes_reward / self._total_episodes
