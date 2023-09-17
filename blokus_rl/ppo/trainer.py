@@ -38,6 +38,9 @@ class Trainer:
         self.memory = Memory(self.hparams, self.envs, self.device)
         self.running_vals = self._reset_running_vals()
 
+        self._total_episodes = 0
+        self._total_episodes_reward = 0
+
         LOG_INFO("Trainer initialized with device: %s", self.device)
 
     def train(self):
@@ -120,6 +123,8 @@ class Trainer:
 
             for item in info.get("final_info", []):
                 if item is not None and "episode" in item:
+                    self._total_episodes += 1
+                    self._total_episodes_reward += item["episode"]["r"]
                     self._update_running_vals(
                         {
                             "episode_return": item["episode"]["r"],
@@ -287,3 +292,8 @@ class Trainer:
             for key, value in self.running_vals.items():
                 self.writer.add_scalar(key, mean(value), self.global_step)
             self.running_vals = self._reset_running_vals()
+
+    @property
+    def mean_episode_reward(self) -> float:
+        """Mean episode reward."""
+        return self._total_episodes_reward / self._total_episodes
