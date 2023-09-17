@@ -3,3 +3,4 @@
 **/states/*
 models/*
 wandb/*
+optuna.db
