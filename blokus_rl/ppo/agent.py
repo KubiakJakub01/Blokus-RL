@@ -73,12 +73,22 @@ class Agent(nn.Module):
 
     def get_value(self, x):
         """Get the value of a state."""
+        x = self._preprocess(x)
         return self.critic(x)
 
     def get_action_and_value(self, x, action=None):
         """Get an action and its value."""
+        x = self._preprocess(x)
         logits = self.actor(x)
         probs = Categorical(logits=logits)
         if action is None:
             action = probs.sample()
         return action, probs.log_prob(action), probs.entropy(), self.critic(x)
+
+    def _preprocess(self, x):
+        """Preprocess the input."""
+        if x.ndim == 1:
+            x = x.unsqueeze(0)
+        elif x.ndim == 3:
+            x = x.reshape(-1, self.input_dim)
+        return x
