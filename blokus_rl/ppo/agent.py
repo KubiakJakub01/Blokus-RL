@@ -22,6 +22,23 @@ def layer_init(layer: nn.Linear, std=np.sqrt(2), bias_const=0.0):
     return layer
 
 
+class FilterLegalMoves(nn.Module):
+    """Filter out illegal moves."""
+    def __init__(self):
+        super(FilterLegalMoves, self).__init__()
+
+    def forward(self, x, possible_moves):
+        actions_tensor = torch.zeros(x.shape).to(x.device)
+        # Create a mask to filter out illegal moves
+        mask = torch.zeros(x.shape).to(x.device)
+        for i, possible_move in enumerate(possible_moves):
+            mask[i, possible_move] = 1
+        # Apply mask
+        actions_tensor = x * mask
+        actions_tensor[actions_tensor == 0] = -1e9
+        return actions_tensor
+
+
 class MLP(nn.Module):
     def __init__(self, input_dim, hidden_dim, output_dim, dropout=0.1, std=0.01):
         """Multi-layer perceptron.
@@ -48,9 +65,12 @@ class MLP(nn.Module):
             nn.ReLU(),
             layer_init(nn.Linear(hidden_dim // 8, output_dim), std),
         )
+        self.filter_legal_moves = FilterLegalMoves()
 
-    def forward(self, x):
+    def forward(self, x, possible_moves=None):
         x = self.net(x)
+        if possible_moves is not None:
+            x = self.filter_legal_moves(x, possible_moves)
         return x
 
 
@@ -76,10 +96,10 @@ class Agent(nn.Module):
         x = self._preprocess(x)
         return self.critic(x)
 
-    def get_action_and_value(self, x, action=None):
+    def get_action_and_value(self, x, action=None, possible_moves=None):
         """Get an action and its value."""
         x = self._preprocess(x)
-        logits = self.actor(x)
+        logits = self.actor(x, possible_moves)
         probs = Categorical(logits=logits)
         if action is None:
             action = probs.sample()
@@ -89,6 +109,6 @@ class Agent(nn.Module):
         """Preprocess the input."""
         if x.ndim == 1:
             x = x.unsqueeze(0)
-        elif x.ndim == 3:
+        elif x.ndim >= 3:
             x = x.reshape(-1, self.input_dim)
         return x
