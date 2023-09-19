@@ -116,7 +116,10 @@ class Trainer:
 
             # Get action and value from the agent
             with torch.inference_mode():
-                action, logproba, _, value = self.agent.get_action_and_value(next_obs)
+                possible_moves = self.envs.get_attr("ai_possible_indexes")
+                action, logproba, _, value = self.agent.get_action_and_value(
+                    next_obs, possible_moves=possible_moves
+                )
                 self.memory.values[step] = value.flatten()
             self.memory.actions[step] = action
             self.memory.logprobs[step] = logproba
@@ -291,7 +294,9 @@ class Trainer:
                 LOG_INFO(
                     "global_step: %d | episodic_return: %.2f | loss: %.2f | SPS: %d",
                     self.global_step,
-                    mean(self.running_vals["charts/episode_return"]) if len(self.running_vals["charts/episode_return"]) > 0 else 0,
+                    mean(self.running_vals["charts/episode_return"])
+                    if len(self.running_vals["charts/episode_return"]) > 0
+                    else 0,
                     mean(self.running_vals["losses/loss"]),
                     mean(self.running_vals["charts/SPS"]),
                 )
