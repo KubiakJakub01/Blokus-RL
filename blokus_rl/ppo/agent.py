@@ -24,6 +24,7 @@ def layer_init(layer: nn.Linear, std=np.sqrt(2), bias_const=0.0):
 
 class FilterLegalMoves(nn.Module):
     """Filter out illegal moves."""
+
     def __init__(self):
         super(FilterLegalMoves, self).__init__()
 
@@ -37,6 +38,113 @@ class FilterLegalMoves(nn.Module):
         actions_tensor = x * mask
         actions_tensor[actions_tensor == 0] = -1e9
         return actions_tensor
+
+
+class ConvBlock(nn.Module):
+    """Convolutional neural networks block."""
+
+    def __init__(
+        self,
+        in_channels: int,
+        out_channels: int,
+        n_layers: int = 4,
+        kernel_size: int = 3,
+        stride: int = 1,
+        padding: int = 1,
+        dropout: float = 0.1,
+    ):
+        """Convolutional block.
+        
+        Args:
+            in_channels: Number of input channels.
+            out_channels: Number of output channels.
+            n_layers: Number of convolutional layers.
+            kernel_size: Kernel size.
+            stride: Stride.
+            padding: Padding.
+            dropout: Dropout probability.
+            std: Standard deviation of the weights.
+            
+        Returns:
+            Initialized convolutional block."""
+        super(ConvBlock, self).__init__()
+        assert n_layers >= 1, "Number of layers must be at least 1"
+        layers = []
+        layers.append(
+            nn.Conv2d(
+                in_channels, out_channels, kernel_size, stride=stride, padding=padding
+            )
+        )
+        layers.append(nn.Dropout(dropout))
+        layers.append(nn.ReLU())
+        for _ in range(n_layers - 1):
+            layers.append(
+                nn.Conv2d(
+                    out_channels,
+                    out_channels,
+                    kernel_size,
+                    stride=stride,
+                    padding=padding,
+                )
+            )
+            layers.append(nn.Dropout(dropout))
+            layers.append(nn.ReLU())
+        self.conv_block = nn.Sequential(*layers)
+
+    def forward(self, x):
+        x = x.unsqueeze(1)  # Add a channel dimension
+        x = self.conv_block(x)
+        return x
+
+
+class CnnAgent(nn.Module):
+    """Agent with a convolutional block."""
+
+    def __init__(self, envs, hparams: HParams):
+        """Initialize the agent.
+        
+        Args:
+            envs: Environment object.
+            hparams: Hyperparameters."""
+        super(CnnAgent, self).__init__()
+        self.board_dim = np.array(envs.single_observation_space.shape).prod()
+        self.output_dim = envs.single_action_space.n
+        self.d_model = hparams.d_model
+        self.conv_block = ConvBlock(
+            1,
+            self.d_model,
+            hparams.cnn_layers,
+            hparams.cnn_kernel_size,
+            hparams.cnn_stride,
+            hparams.cnn_padding,
+            hparams.cnn_dropout,
+        )
+        self.actor = MLP(
+            self.d_model * self.board_dim,
+            self.d_model,
+            self.output_dim,
+            hparams.dropout,
+            std=0.01,
+        )
+        self.critic = MLP(
+            self.d_model * self.board_dim, self.d_model, 1, hparams.dropout, std=1.0
+        )
+
+    def get_value(self, x):
+        """Get the value of a state."""
+        x = self.conv_block(x)
+        x = x.view(x.size(0), -1)  # Flatten the output of the conv block
+        return self.critic(x)
+
+    def get_action_and_value(self, x, action=None, possible_moves=None):
+        """Get an action and its value."""
+        x = self.conv_block(x)
+        x = x.view(x.size(0), -1)  # Flatten the output of the conv block
+        logits = self.actor(x, possible_moves)
+        probs = Categorical(logits=logits)
+        if action is None:
+            action = probs.sample()
+        return action, probs.log_prob(action), probs.entropy(), self.critic(x)
 
 
 class MLP(nn.Module):
@@ -76,6 +184,7 @@ class MLP(nn.Module):
 
 class Agent(nn.Module):
     """Agent network."""
+
     def __init__(self, envs, hparams: HParams):
         """Initialize the agent.
 
@@ -88,7 +197,9 @@ class Agent(nn.Module):
         self.output_dim = envs.single_action_space.n
         self.d_model = hparams.d_model
 
-        self.actor = MLP(self.input_dim, self.d_model, self.output_dim, hparams.dropout, std=0.01)
+        self.actor = MLP(
+            self.input_dim, self.d_model, self.output_dim, hparams.dropout, std=0.01
+        )
         self.critic = MLP(self.input_dim, self.d_model, 1, hparams.dropout, std=1.0)
 
     def get_value(self, x):
@@ -112,3 +223,8 @@ class Agent(nn.Module):
         elif x.ndim >= 3:
             x = x.reshape(-1, self.input_dim)
         return x
+
+
+def get_agent(agent: str):
+    agents_dict = {"mlp": Agent, "cnn": CnnAgent}
+    return agents_dict[agent]

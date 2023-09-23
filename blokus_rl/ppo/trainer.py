@@ -11,7 +11,7 @@ import torch.nn as nn
 import torch.optim as optim
 from torch.utils.tensorboard import SummaryWriter
 
-from .agent import Agent
+from .agent import get_agent
 from .memory import Memory
 from ..hparams import HParams
 from ..utils import LOG_INFO, LOG_DEBUG, LOG_WARNING, make_envs
@@ -31,7 +31,7 @@ class Trainer:
         self.envs = gym.vector.SyncVectorEnv(
             [make_envs(i, self.hparams) for i in range(self.hparams.num_envs)]
         )
-        self.agent = Agent(self.envs, self.hparams).to(self.device)
+        self.agent = get_agent(self.hparams.agent_type)(self.envs, self.hparams).to(self.device)
         self.optimizer = optim.Adam(
             self.agent.parameters(), lr=self.hparams.learning_rate, eps=self.hparams.eps
         )
