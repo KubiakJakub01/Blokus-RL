@@ -1,5 +1,6 @@
 gym_env: blokus_gym:blokus-simple-v0
 experiment_name: blokus
+agent_type: "cnn"
 wanda: false
 wandb_project_name: sandboxRL
 capture_video: false
