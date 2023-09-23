@@ -14,7 +14,7 @@ from torch.utils.tensorboard import SummaryWriter
 from .agent import Agent
 from .memory import Memory
 from ..hparams import HParams
-from ..utils import LOG_INFO, LOG_WARNING, make_envs
+from ..utils import LOG_INFO, LOG_DEBUG, LOG_WARNING, make_envs
 
 
 class Trainer:
@@ -73,7 +73,7 @@ class Trainer:
             # Optimizing the policy and value network
             self._optimize_agent(batch)
 
-            # TRY NOT TO MODIFY: record rewards for plotting purposes
+            # Update the running values for the charts
             self._update_running_vals(
                 {"SPS": int(self.global_step / (time.time() - start_time))},
                 prefix="charts",
@@ -107,8 +107,15 @@ class Trainer:
         frac = 1.0 - (update - 1.0) / self.hparams.num_updates
         return frac * self.hparams.learning_rate
 
-    def _play_env(self, next_obs, next_done) -> tuple[torch.Tensor, torch.Tensor]:
-        """Play the environment for a number of steps."""
+    def _play_env(self, next_obs: torch.Tensor, next_done: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
+        """Play the environment for a number of steps.
+        
+        Args:
+            next_obs: Next observation.
+            next_done: Whether the next state is done.
+        
+        Returns:
+            Next observation and whether the next state is done."""
         for step in range(self.hparams.num_steps):
             self.global_step += 1 * self.hparams.num_envs
             self.memory.obs[step] = next_obs
@@ -148,6 +155,19 @@ class Trainer:
         return next_obs, next_done
 
     def _compute_gae(self, next_value, next_done) -> torch.Tensor:
+        """Compute the generalized advantage estimation.
+
+        GAE is computed as:
+        `delta = r + gamma * V(s') * (1 - done) - V(s)`
+        `advantage = delta + gamma * lambda * (1 - done) * advantage`
+
+        Args:
+            next_value: Value of the next state.
+            next_done: Whether the next state is done.
+
+        Returns:
+            Generalized advantage estimation."""
+        LOG_DEBUG(f'step: %d rewards: %s', self.global_step, self.memory.rewards)
         advantages = torch.zeros_like(self.memory.rewards).to(self.device)
         lastgaelam = 0
         for t in reversed(range(self.hparams.num_steps)):
@@ -249,7 +269,7 @@ class Trainer:
         var_y = np.var(y_true)
         explained_var = np.nan if var_y == 0 else 1 - np.var(y_true - y_pred) / var_y
 
-        # TRY NOT TO MODIFY: record rewards for plotting purposes
+        # Log the losses
         self._update_running_vals(
             {"learning_rate": self.optimizer.param_groups[0]["lr"]}, prefix="charts"
         )

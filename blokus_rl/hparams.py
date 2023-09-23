@@ -52,6 +52,9 @@ class HParams:
     logging: bool = field(
         default=True, metadata={"help": "Whether to log to stdout and tensorboard"}
     )
+    detect_anomaly: bool = field(
+        default=False, metadata={"help": "Whether to detect autograd anomalies"}
+    )
 
     # Model parameters
     save_interval: int = field(

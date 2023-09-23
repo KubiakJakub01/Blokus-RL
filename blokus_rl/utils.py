@@ -12,11 +12,16 @@ from .hparams import HParams
 
 # Set up logging
 logger = logging.getLogger(__name__)
+file_handler = logging.FileHandler("debug.log", mode="w", encoding="utf-8")
+file_handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(message)s"))
+file_handler.setLevel(logging.DEBUG)
 handler = logging.StreamHandler()
 handler.setFormatter(
     coloredlogs.ColoredFormatter("%(asctime)s %(levelname)s %(message)s")
 )
+handler.setLevel(logging.INFO)
 logger.addHandler(handler)
+logger.addHandler(file_handler)
 
 
 def LOG_DEBUG(*args, **kwargs):
@@ -48,8 +53,8 @@ def seed(seed_number: int):
 
 def set_environ(hparams: HParams):
     """Set environment variables."""
-    os.environ["LOGLEVEL"] = hparams.log_level
     logger.setLevel(hparams.log_level)
+    torch.autograd.set_detect_anomaly(hparams.detect_anomaly)
 
 
 def make_envs(idx, hparams: HParams):
