@@ -1,0 +1,12 @@
+gym_env: blokus_gym:blokus-hard-v0
+experiment_name: blokus
+wanda: false
+wandb_project_name: sandboxRL
+capture_video: false
+cuda: false
+dropout: 0.1
+d_model: 512
+num_steps: 32
+learning_rate: 2.5e-5
+detect_anomaly: true
+log_level: "DEBUG"
