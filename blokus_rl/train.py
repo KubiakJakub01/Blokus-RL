@@ -2,11 +2,9 @@
 import argparse
 from pathlib import Path
 
-
 from .hparams import load_hparams, HParams
 from .utils import LOG_INFO, seed, set_environ
 from .ppo import Trainer
-from .stablebaseline import SBTrainer
 
 
 def get_params():
@@ -17,21 +15,12 @@ def get_params():
         required=False,
         help="Path to a YAML file containing hyperparameters.",
     )
-    parser.add_argument(
-        "--trainer",
-        type=str,
-        choices=["ppo", "sb_ppo"],
-        help="Which trainer to use.",
-    )
     return parser.parse_args()
 
 
-def train(hparams: HParams, trainer: str = "ppo"):
+def train(hparams: HParams):
     """Train a model."""
-    if trainer == "ppo":
-        trainer = Trainer(hparams)
-    elif trainer == "sb_ppo":
-        trainer = SBTrainer(hparams)
+    trainer = Trainer(hparams)
     trainer.train()
 
 
@@ -62,4 +51,4 @@ if __name__ == "__main__":
     set_environ(hparams)
     seed(hparams.seed)
 
-    train(hparams, args.trainer)
+    train(hparams)

@@ -28,7 +28,7 @@ class SBTrainer:
             ent_coef=0.01,
             verbose=1,
         )
-        LOG_INFO("Initialized SBTrainer with device: %s" % self.device) 
+        LOG_INFO("Initialized SBTrainer with device: %s" % self.device)
 
     def train(self):
         self.model.learn(total_timesteps=self.hparams.total_timesteps)

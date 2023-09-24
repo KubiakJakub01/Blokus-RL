@@ -31,7 +31,9 @@ class Trainer:
         self.envs = gym.vector.SyncVectorEnv(
             [make_envs(i, self.hparams) for i in range(self.hparams.num_envs)]
         )
-        self.agent = get_agent(self.hparams.agent_type)(self.envs, self.hparams).to(self.device)
+        self.agent = get_agent(self.hparams.agent_type)(self.envs, self.hparams).to(
+            self.device
+        )
         self.optimizer = optim.Adam(
             self.agent.parameters(), lr=self.hparams.learning_rate, eps=self.hparams.eps
         )
@@ -107,7 +109,9 @@ class Trainer:
         frac = 1.0 - (update - 1.0) / self.hparams.num_updates
         return frac * self.hparams.learning_rate
 
-    def _play_env(self, next_obs: torch.Tensor, next_done: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
+    def _play_env(
+        self, next_obs: torch.Tensor, next_done: torch.Tensor
+    ) -> tuple[torch.Tensor, torch.Tensor]:
         """Play the environment for a number of steps.
         
         Args:
@@ -167,7 +171,7 @@ class Trainer:
 
         Returns:
             Generalized advantage estimation."""
-        LOG_DEBUG(f'step: %d rewards: %s', self.global_step, self.memory.rewards)
+        LOG_DEBUG(f"step: %d rewards: %s", self.global_step, self.memory.rewards)
         advantages = torch.zeros_like(self.memory.rewards).to(self.device)
         lastgaelam = 0
         for t in reversed(range(self.hparams.num_steps)):

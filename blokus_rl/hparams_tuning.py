@@ -13,6 +13,7 @@ from .ppo import Trainer
 
 GYM_ENV = "LunarLander-v2"
 
+
 def objective(trial: Trial) -> float:
     """Objective function for Optuna to optimize.
 
@@ -37,7 +38,7 @@ def objective(trial: Trial) -> float:
         "ent_coef": trial.suggest_float("ent_coef", 0.0, 0.01),
         "vf_coef": trial.suggest_float("vf_coef", 0.1, 0.5),
         "max_grad_norm": trial.suggest_float("max_grad_norm", 0.1, 0.5),
-        "d_model": trial.suggest_int("d_model", 16, 512, log=True)
+        "d_model": trial.suggest_int("d_model", 16, 512, log=True),
     }
 
     # Create hparams object
@@ -84,10 +85,7 @@ def main() -> None:
         help="Database URL for Optuna to store results.",
     )
     parser.add_argument(
-        "--direction",
-        type=str,
-        default="maximize",
-        help="Direction to optimize for.",
+        "--direction", type=str, default="maximize", help="Direction to optimize for."
     )
     parser.add_argument(
         "--pruner_n_startup_trials",

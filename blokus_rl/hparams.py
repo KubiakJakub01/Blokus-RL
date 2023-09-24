@@ -66,26 +66,16 @@ class HParams:
     dropout: float = field(
         default=0.1, metadata={"help": "Dropout probability for MLP"}
     )
-    d_model: int = field(
-        default=64, metadata={"help": "Dimensionality of the model"}
-    )
-    
+    d_model: int = field(default=64, metadata={"help": "Dimensionality of the model"})
+
     # CNN parameters
-    cnn_layers: int = field(
-        default=4, metadata={"help": "Number of layers for CNN"}
-    )
+    cnn_layers: int = field(default=4, metadata={"help": "Number of layers for CNN"})
     cnn_channels: int = field(
         default=1, metadata={"help": "Number of channels for CNN"}
     )
-    cnn_kernel_size: int = field(
-        default=3, metadata={"help": "Kernel size for CNN"}
-    )
-    cnn_stride: int = field(
-        default=1, metadata={"help": "Stride for CNN"}
-    )
-    cnn_padding: int = field(
-        default=1, metadata={"help": "Padding for CNN"}
-    )
+    cnn_kernel_size: int = field(default=3, metadata={"help": "Kernel size for CNN"})
+    cnn_stride: int = field(default=1, metadata={"help": "Stride for CNN"})
+    cnn_padding: int = field(default=1, metadata={"help": "Padding for CNN"})
     cnn_dropout: float = field(
         default=0.1, metadata={"help": "Dropout probability for CNN"}
     )

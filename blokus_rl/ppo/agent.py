@@ -165,13 +165,13 @@ class MLP(nn.Module):
             layer_init(nn.Linear(input_dim, hidden_dim)),
             nn.Dropout(dropout),
             nn.ReLU(),
-            layer_init(nn.Linear(hidden_dim, hidden_dim // 2)),
+            layer_init(nn.Linear(hidden_dim, hidden_dim * 2)),
             nn.Dropout(dropout),
             nn.ReLU(),
-            layer_init(nn.Linear(hidden_dim // 2, hidden_dim // 8)),
+            layer_init(nn.Linear(hidden_dim * 2, hidden_dim)),
             nn.Dropout(dropout),
             nn.ReLU(),
-            layer_init(nn.Linear(hidden_dim // 8, output_dim), std),
+            layer_init(nn.Linear(hidden_dim, output_dim), std),
         )
         self.filter_legal_moves = FilterLegalMoves()
 
