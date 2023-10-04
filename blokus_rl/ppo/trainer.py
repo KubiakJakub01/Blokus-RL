@@ -1,8 +1,8 @@
 """Module with trainer for class."""
 import time
 from collections import defaultdict
-from typing import Any
 from statistics import mean
+from typing import Any
 
 import gymnasium as gym
 import numpy as np
@@ -11,10 +11,10 @@ import torch.nn as nn
 import torch.optim as optim
 from torch.utils.tensorboard import SummaryWriter
 
+from ..hparams import HParams
+from ..utils import LOG_DEBUG, LOG_INFO, LOG_WARNING, make_envs
 from .agent import get_agent
 from .memory import Memory
-from ..hparams import HParams
-from ..utils import LOG_INFO, LOG_DEBUG, LOG_WARNING, make_envs
 
 
 class Trainer:

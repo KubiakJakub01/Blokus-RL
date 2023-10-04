@@ -1,12 +1,11 @@
 """Utility functions for the project."""
 import logging
-import os
 import random
 
 import coloredlogs
 import gymnasium as gym
-import torch
 import numpy as np
+import torch
 
 from .hparams import HParams
 

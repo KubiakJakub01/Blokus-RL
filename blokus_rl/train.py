@@ -2,9 +2,9 @@
 import argparse
 from pathlib import Path
 
-from .hparams import load_hparams, HParams
-from .utils import LOG_INFO, seed, set_environ
+from .hparams import HParams, load_hparams
 from .ppo import Trainer
+from .utils import LOG_INFO, seed, set_environ
 
 
 def get_params():

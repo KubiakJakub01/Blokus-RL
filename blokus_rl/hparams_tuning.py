@@ -8,8 +8,8 @@ import yaml
 from optuna.trial import Trial
 
 from .hparams import HParams
-from .utils import LOG_INFO
 from .ppo import Trainer
+from .utils import LOG_INFO
 
 GYM_ENV = "LunarLander-v2"
 
