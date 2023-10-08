@@ -5,3 +5,5 @@ models/*
 wandb/*
 optuna.db
 *.log
+**/*.c
+**/*.so
