@@ -1,2 +1,2 @@
-from .trainer import Trainer
+from .trainer import PPOTrainer
 from .agent import Agent

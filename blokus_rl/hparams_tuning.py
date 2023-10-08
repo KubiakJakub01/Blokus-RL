@@ -8,7 +8,7 @@ import yaml
 from optuna.trial import Trial
 
 from .hparams import HParams
-from .ppo import Trainer
+from .ppo import PPOTrainer
 from .utils import LOG_INFO
 
 GYM_ENV = "LunarLander-v2"
@@ -45,7 +45,7 @@ def objective(trial: Trial) -> float:
     hparams_obj = HParams(**hparams_dict)
 
     # Create trainer
-    trainer = Trainer(hparams_obj)
+    trainer = PPOTrainer(hparams_obj)
 
     # Train
     trainer.train()

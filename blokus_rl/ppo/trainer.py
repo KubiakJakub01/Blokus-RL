@@ -1,4 +1,4 @@
-"""Module with trainer for class."""
+"""Module with trainer for PPO agent."""
 import time
 from collections import defaultdict
 from statistics import mean
@@ -11,14 +11,19 @@ import torch.nn as nn
 import torch.optim as optim
 from torch.utils.tensorboard import SummaryWriter
 
-from ..hparams import HParams
+from ..hparams import PPOHparams
 from ..utils import LOG_DEBUG, LOG_INFO, LOG_WARNING, make_envs
 from .agent import get_agent
 from .memory import Memory
 
 
-class Trainer:
-    def __init__(self, hparams: HParams):
+class PPOTrainer:
+    """Trainer for proximal policy optimization agent.
+
+    After initializing the trainer, call the `train` method to train the agent.
+    """
+
+    def __init__(self, hparams: PPOHparams):
         """Initialize the trainer.
         
         Args:
@@ -127,7 +132,7 @@ class Trainer:
 
             # Get action and value from the agent
             with torch.inference_mode():
-                possible_moves = self.envs.get_attr("ai_possible_indexes")
+                possible_moves = self._get_valid_moves_mask()
                 action, logproba, _, value = self.agent.get_action_and_value(
                     next_obs, possible_moves=possible_moves
                 )
@@ -196,9 +201,13 @@ class Trainer:
         return advantages
 
     def _optimize_agent(self, batch: dict[str, torch.Tensor]):
+        """Optimize the agent.
+
+        Args:
+            batch: Batch of data."""
         b_inds = np.arange(self.hparams.batch_size)
         clipfracs = []
-        for epoch in range(self.hparams.update_epochs):
+        for _ in range(self.hparams.update_epochs):
             np.random.shuffle(b_inds)
             for start in range(0, self.hparams.batch_size, self.hparams.minibatch_size):
                 end = start + self.hparams.minibatch_size
@@ -339,6 +348,14 @@ class Trainer:
             self.agent.state_dict(),
             self.hparams.log_dir / f"model_{self.global_step}.pt",
         )
+
+    def _get_valid_moves_mask(self) -> torch.Tensor | None:
+        """Get the valid moves for the environment.
+        
+        If None is returned there is no restriction on the moves."""
+        if "blokus" in self.hparams.gym_env:
+            return self.envs.get_attr("ai_possible_indexes")
+        return None
 
     @property
     def mean_episode_reward(self) -> float:

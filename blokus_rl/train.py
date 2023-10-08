@@ -3,7 +3,7 @@ import argparse
 from pathlib import Path
 
 from .hparams import HParams, load_hparams
-from .ppo import Trainer
+from .ppo import PPOTrainer
 from .utils import LOG_INFO, seed, set_environ
 
 
@@ -15,12 +15,19 @@ def get_params():
         required=False,
         help="Path to a YAML file containing hyperparameters.",
     )
+    parser.add_argument(
+        "--algorithm",
+        type=str,
+        choices=["ppo"],
+        default="ppo",
+        help="Algorithm to use for training.",
+    )
     return parser.parse_args()
 
 
 def train(hparams: HParams):
     """Train a model."""
-    trainer = Trainer(hparams)
+    trainer = PPOTrainer(hparams)
     trainer.train()
 
 

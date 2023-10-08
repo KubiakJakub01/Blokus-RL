@@ -9,6 +9,7 @@ import yaml
 
 @dataclass
 class HParams:
+    """Common hyperparameters for training and testing."""
     # Experiment parameters
     gym_env: str = field(
         default="blokus_gym:blokus-simple-v0", metadata={"help": "Gym environment ID"}
@@ -56,6 +57,15 @@ class HParams:
         default=False, metadata={"help": "Whether to detect autograd anomalies"}
     )
 
+    def save(self, hparam_fp: Path) -> None:
+        """Save hyperparameters to a YAML file."""
+        with open(hparam_fp, "w", encoding="utf-8") as f:
+            yaml.dump(self.__dict__, f, default_flow_style=False)
+
+
+@dataclass
+class PPOHparams(HParams):
+    """Hyperparameters for PPO."""
     # Model parameters
     agent_type: Literal["mlp", "cnn"] = field(
         default="mlp", metadata={"help": "Type of agent to use"}
@@ -135,16 +145,19 @@ class HParams:
         self.minibatch_size = self.batch_size // self.num_minibatches
         self.num_updates = self.total_timesteps // self.batch_size
 
-    def save(self, hparam_fp: Path) -> None:
-        """Save hyperparameters to a YAML file."""
-        with open(hparam_fp, "w", encoding="utf-8") as f:
-            yaml.dump(self.__dict__, f, default_flow_style=False)
+
+def get_hparams(algorithm: str = "ppo") -> HParams:
+    """Get hyperparameters for a given algorithm."""
+    hparams_dict = {
+        "ppo": PPOHparams,
+    }
+    return hparams_dict[algorithm]
 
 
-def load_hparams(hparam_fp: Path | None = None) -> HParams:
+def load_hparams(hparam_fp: Path | None = None, algorithm: str = "ppo") -> PPOHparams:
     """Load hyperparameters from a YAML file."""
     if hparam_fp is None:
-        return HParams()
+        return get_hparams(algorithm)
     with open(hparam_fp, "r", encoding="utf-8") as f:
         hparams_dict = yaml.safe_load(f)
-    return HParams(**hparams_dict)
+    return get_hparams(algorithm)(**hparams_dict)

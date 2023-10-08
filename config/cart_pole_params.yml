@@ -1,6 +1,6 @@
 gym_env: CartPole-v1
 experiment_name: CartPole
-wanda: true
+wanda: false
 wandb_project_name: sandboxRL
 capture_video: false
 cuda: false
