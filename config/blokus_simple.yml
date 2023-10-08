@@ -1,0 +1,12 @@
+gym_env: blokus_gym:blokus-simple-v0
+experiment_name: blokus
+agent_type: "cnn"
+wanda: false
+wandb_project_name: sandboxRL
+capture_video: false
+cuda: false
+dropout: 0.1
+d_model: 128
+num_steps: 32
+learning_rate: 1.0e-5
+max_grad_norm: 0.5

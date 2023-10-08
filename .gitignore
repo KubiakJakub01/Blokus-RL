@@ -1,0 +1,7 @@
+**/__pycache__/
+**/debug/*
+**/states/*
+models/*
+wandb/*
+optuna.db
+*.log
