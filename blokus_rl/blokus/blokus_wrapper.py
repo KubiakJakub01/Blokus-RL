@@ -34,7 +34,9 @@ class BlokusGameWrapper:
             number_of_players: An integer representing the number of players.
             states_fp: A string representing the path to the file where the states are saved."""
         if not cython.compiled:
-            print("You should run 'python setup.py build_ext --inplace' to get a 3x speedup")
+            print(
+                "You should run 'python setup.py build_ext --inplace' to get a 3x speedup"
+            )
         self.STATES_FOLDER = "states"
         self.all_possible_indexes_to_moves = None
         self.starter_won = 0
@@ -46,7 +48,7 @@ class BlokusGameWrapper:
         self.all_shapes = get_all_shapes()
         self._set_all_possible_moves()
 
-    def getInitBoard(self) -> tuple[BlokusGame, int]:
+    def get_init_board(self) -> tuple[BlokusGame, int]:
         """
         Returns:
             blokus_game: a BlokusGame object
@@ -62,24 +64,26 @@ class BlokusGameWrapper:
             )
         return blokus_game, blokus_game.next_player().index
 
-    def getBoardSize(self) -> tuple[int, int]:
+    def get_board_size(self) -> tuple[int, int]:
         """
         Returns:
             (x,y): a tuple of board dimensions
         """
         return (self.BOARD_SIZE, self.BOARD_SIZE)
 
-    def getActionSize(self) -> int:
+    def get_action_size(self) -> int:
         """
         Returns:
             number of all possible actions
         """
         return len(self.all_possible_indexes_to_moves)
 
-    def getNextState(self, blokus_game: BlokusGame, player: int, action: int):
+    def get_next_state(
+        self, blokus_game: BlokusGame, player: int, action: int
+    ) -> tuple[BlokusGame, int]:
         """
         Input:
-            board: current board
+            blokus_game: blokus game object
             player: current player index
             action: action taken by current player
 
@@ -98,11 +102,11 @@ class BlokusGameWrapper:
         blokus_game.play()
         return blokus_game, blokus_game.next_player().index
 
-    def getValidMoves(self, blokus_game: BlokusGame, player: int) -> list[int]:
+    def get_valid_moves(self, blokus_game: BlokusGame, player: int) -> list[int]:
         """
         Input:
-            board: current board
-            player: current player
+            blokus_game: blokus game object
+            player: current player index
 
         Returns:
             mask: a binary vector of length self.get_action_size(), 1 for
@@ -115,11 +119,11 @@ class BlokusGameWrapper:
             mask[index] = 1
         return mask
 
-    def getGameEnded(self, blokus_game, player):
+    def get_game_ended(self, blokus_game: BlokusGame, player: int):
         """
         Input:
-            board: current board
-            player: current player (1 or -1)
+            blokus_game: blokus game object
+            player: current player index
 
         Returns:
             r: 0 if game has not ended. 1 if player won, -1 if player lost,
@@ -129,7 +133,6 @@ class BlokusGameWrapper:
         winners = blokus_game.winners()
         done = winners is not None
         if done:
-            # print(f"Game over! And the winner is: {winners}")
             if player in winners:
                 if len(winners) == 1:
                     reward = self.rewards["won"]
@@ -137,18 +140,16 @@ class BlokusGameWrapper:
                     reward = self.rewards["tie-won"]
             else:
                 reward = self.rewards["lost"]
-            # print(f"Player {player} winners: {winners} reward: {reward}")
         else:
-            # reward = self.rewards['default'] if self.ai.next_move is None else self.ai.next_move.size
             reward = self.rewards["default"]
 
         return reward
 
-    def getCanonicalForm(self, blokus_game, player):
+    def get_canonical_form(self, blokus_game: BlokusGame, player: int) -> BlokusGame:
         """
         Input:
-            board: current board
-            player: current player (1 or -1)
+            blokus_game: blokus game object
+            player: current player index
 
         Returns:
             canonicalBoard: returns canonical form of board. The canonical form
@@ -165,11 +166,13 @@ class BlokusGameWrapper:
         blokus_game.canonical_board = board
         return blokus_game
 
-    def getSymmetries(self, blokus_game, pi):
+    def get_symmetries(
+        self, blokus_game: BlokusGame, pi: list[int]
+    ) -> list[tuple[BlokusGame, list[int]]]:
         """
         Input:
-            board: current board
-            pi: policy vector of size self.getActionSize()
+            blokus_game: blokus game object
+            pi: policy vector of size self.get_action_size()
 
         Returns:
             symmForms: a list of [(board,pi)] where each tuple is a symmetrical
@@ -178,10 +181,10 @@ class BlokusGameWrapper:
         """
         return [(blokus_game.canonical_board, pi)]
 
-    def stringRepresentation(self, blokus_game):
+    def string_representation(self, blokus_game: BlokusGame) -> str:
         """
         Input:
-            board: current board
+            blokus_game: blokus game object
 
         Returns:
             boardString: a quick conversion of board to a string format.
@@ -189,19 +192,18 @@ class BlokusGameWrapper:
         """
         return str(blokus_game.canonical_board)
 
-    def sample_move(self, board):
+    def sample_move(self, blokus_game: BlokusGame):
         """
         Input:
-            board: current board
+            blokus_game: blokus game object
 
         Returns:
             move: a random move
         """
-        return board.next_player().sample_move_idx()
+        return blokus_game.next_player().sample_move_idx()
 
     def _set_all_possible_moves(self):
-        # if self.all_possible_indexes_to_moves is not None:
-        #     return
+        """Set all possible moves."""
 
         if os.path.exists(self.states_fp):
             with open(self.states_fp) as json_file:
