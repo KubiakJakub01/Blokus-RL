@@ -145,6 +145,47 @@ class PPOHparams(HParams):
         self.minibatch_size = self.batch_size // self.num_minibatches
         self.num_updates = self.total_timesteps // self.batch_size
 
+@dataclass
+class HparamsMCTS:
+    """Hyperparameters for MCTS."""
+    # Model parameters
+    lr: float = field(default=0.001, metadata={"help": "Learning rate"})
+    dropout: float = field(default=0.3, metadata={"help": "Dropout probability"})
+    epochs: int = field(default=10, metadata={"help": "Number of epochs"})
+    batch_size: int = field(default=64, metadata={"help": "Batch size"})
+    num_channels: int = field(default=128, metadata={"help": "Number of channels"})
+    linear_dim: int = field(default=128, metadata={"help": "Linear layer dimension"})
+
+    # Training parameters
+    numIters: int = field(default=1000, metadata={"help": "Number of iterations"})
+    numEps: int = field(default=100, metadata={"help": "Number of episodes"})
+    tempThreshold: int = field(
+        default=15, metadata={"help": "Temperature threshold"}
+    )
+    updateThreshold: float = field(
+        default=0.6, metadata={"help": "Update threshold"}
+    )
+    maxlenOfQueue: int = field(
+        default=200000, metadata={"help": "Maximum length of queue"}
+    )
+    numMCTSSims: int = field(
+        default=25, metadata={"help": "Number of MCTS simulations"}
+    )
+    arenaCompare: int = field(
+        default=40, metadata={"help": "Number of arena comparisons"}
+    )
+    cpuct: int = field(default=1, metadata={"help": "CPUCT"})
+
+    # Checkpoint parameters
+    load_model: bool = field(default=False, metadata={"help": "Whether to load model"})
+    load_folder_file: tuple[str, str] = field(
+        default=("./temp/", "best.pth.tar"), metadata={"help": "Folder to load model"}
+    )
+    numItersForTrainExamplesHistory: int = field(
+        default=20, metadata={"help": "Number of iterations for train examples history"}
+    )
+
+
 
 def get_hparams(algorithm: str = "ppo") -> HParams:
     """Get hyperparameters for a given algorithm."""
