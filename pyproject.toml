@@ -2,7 +2,7 @@
 name = "blokus_rl"
 description = "Reinforcement learning for blokus game"
 readme = "README.md"
-version = "0.1.0"
+version = "0.0.0"
 authors = [
     { name = "Jakub Kubiak", email = "kubiak.jakub01@gmail.com" }
 ]
@@ -21,6 +21,8 @@ classifiers = [
     "Topic :: Games/Entertainment :: Board Games"
 ]
 
+[tool.setuptools]
+py-modules = []
+
 [build-system]
-build-backend = "flit_core.buildapi"
-requires = ["flit_core >=3.8.0,<4"]
+requires = ["setuptools", "wheel", "Cython"]
