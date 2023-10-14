@@ -105,7 +105,9 @@ class BlokusNNet(nn.Module):
 
 
 class BlokusNNetWrapper:
-    def __init__(self, game: BlokusGameWrapper, hparams: MCTSHparams, device: str = "cpu"):
+    def __init__(
+        self, game: BlokusGameWrapper, hparams: MCTSHparams, device: str = "cpu"
+    ):
         self.hparams = hparams
         self.device = device
         self.nnet = BlokusNNet(game, hparams).to(self.device)
@@ -117,10 +119,12 @@ class BlokusNNetWrapper:
         examples: list of examples, each example is of form (board, pi, v)
         """
         optimizer = optim.Adam(
-            self.nnet.parameters(), lr=self.hparams.lr,
+            self.nnet.parameters(),
+            lr=self.hparams.lr,
         )
         pi_losses = AverageMeter()
         v_losses = AverageMeter()
+        total_losses = AverageMeter()
 
         with tqdm(range(self.hparams.epochs), desc="Training Net...") as t:
             for epoch in t:
@@ -151,28 +155,29 @@ class BlokusNNetWrapper:
                     # record loss
                     pi_losses.update(l_pi.item(), boards.size(0))
                     v_losses.update(l_v.item(), boards.size(0))
-                    t.set_postfix(Loss_pi=pi_losses, Loss_v=v_losses)
+                    total_losses.update(total_loss.item(), boards.size(0))
+                    t.set_postfix(Loss_pi=pi_losses, Loss_v=v_losses, Total_loss=total_losses)
 
                     # compute gradient and do SGD step
                     optimizer.zero_grad()
                     total_loss.backward()
                     optimizer.step()
-        
-        return pi_losses, v_losses
+
+        return pi_losses, v_losses, total_losses
 
     def predict(self, board):
-            """
-            board: np array with board
-            """
-            # preparing input
-            board = torch.Tensor(board.astype(np.float64)).to(self.device)
-            board = board.view(1, self.board_x, self.board_y)
-            self.nnet.eval()
-            with torch.no_grad():
-                pi, v = self.nnet(board)
+        """
+        board: np array with board
+        """
+        # preparing input
+        board = torch.Tensor(board.astype(np.float64)).to(self.device)
+        board = board.view(1, self.board_x, self.board_y)
+        self.nnet.eval()
+        with torch.no_grad():
+            pi, v = self.nnet(board)
 
-            # print('PREDICTION TIME TAKEN : {0:03f}'.format(time.time()-start))
-            return torch.exp(pi).data.cpu().numpy()[0], v.data.cpu().numpy()[0]
+        # print('PREDICTION TIME TAKEN : {0:03f}'.format(time.time()-start))
+        return torch.exp(pi).data.cpu().numpy()[0], v.data.cpu().numpy()[0]
 
     def loss_pi(self, targets, outputs):
         return -torch.sum(targets * outputs) / targets.size()[0]
@@ -180,16 +185,16 @@ class BlokusNNetWrapper:
     def loss_v(self, targets, outputs):
         return torch.sum((targets - outputs.view(-1)) ** 2) / targets.size()[0]
 
-    def save_checpoint(self, filename: str = "checkpoint.pth.tar"):
+    def save_checkpoint(self, filename: str = "checkpoint.pth.tar"):
         """Save the model."""
-        model_path = self.hparams.log_dir / filename
+        model_path = self.hparams.checkpoint_dir / filename
         LOG_INFO("Saving checkpoint to: %s", model_path)
-        torch.save(self.state_dict(), model_path)
+        torch.save(self.nnet.state_dict(), model_path)
 
     def load_checkpoint(self, filename: str = "checkpoint.pth.tar"):
-        model_path = self.hparams.log_dir / filename
+        """Load the model."""
+        model_path = self.hparams.checkpoint_dir / filename
         LOG_INFO("Loading model from: %s", str(model_path))
         assert model_path.exists(), f"Model path doesn't exist {model_path}"
-        map_location = None if self.hparams.cuda else "cpu"
-        checkpoint = torch.load(model_path, map_location=map_location)
-        self.load_state_dict(checkpoint["state_dict"])
+        checkpoint = torch.load(model_path, map_location=self.device)
+        self.nnet.load_state_dict(checkpoint)

@@ -24,7 +24,7 @@ class MCTSTrainer:
     """
 
     def __init__(self, hparams: MCTSHparams):
-        self.hparams = hparams
+        self._build_hparams(hparams)
         self.device = (
             "cuda" if torch.cuda.is_available() and self.hparams.cuda else "cpu"
         )
@@ -33,11 +33,11 @@ class MCTSTrainer:
         self.game = BlokusGameWrapper(
             self.hparams.board_size,
             self.hparams.number_of_players,
-            self.hparams.states_dir
+            self.hparams.states_dir,
         )
         # agent and opponent neural nets
-        self.nnet = BlokusNNetWrapper(self.game, self.hparams,  self.device)
-        self.pnet = BlokusNNetWrapper(self.game, self.hparams,  self.device)
+        self.nnet = BlokusNNetWrapper(self.game, self.hparams, self.device)
+        self.pnet = BlokusNNetWrapper(self.game, self.hparams, self.device)
         self.mcts = MCTS(self.game, self.nnet, self.hparams)
         # history of examples from num_iters_for_train_examples_history latest iterations
         self.train_examples_history = []
@@ -59,7 +59,7 @@ class MCTSTrainer:
         uses temp=0.
 
         Returns:
-            trainExamples: a list of examples of the form (canonicalBoard, currPlayer, pi,v)
+            trainExamples: a list of examples of the form (canonicalBoard, currPlayer, pi, v)
                            pi is the MCTS informed policy vector, v is +1 if
                            the player eventually won the game, else -1.
         """
@@ -86,9 +86,6 @@ class MCTSTrainer:
             r = self.game.get_game_ended(board, self.curPlayer)
 
             if r != 0:
-                self._update_running_vals({
-                    "reward": r
-                }, prefix=f"player_{self.curPlayer}")
                 return [
                     (x[0], x[2], r * ((-1) ** (x[1] != self.curPlayer)))
                     for x in trainExamples
@@ -108,7 +105,9 @@ class MCTSTrainer:
             LOG_INFO("Starting Iter #%d ...", i)
             # examples of the iteration
             if not self.skip_first_self_play or i > 1:
-                iteration_train_examples = deque([], maxlen=self.hparams.max_len_of_queue)
+                iteration_train_examples = deque(
+                    [], maxlen=self.hparams.max_len_of_queue
+                )
 
                 for _ in tqdm(range(self.hparams.num_eps), desc="Self Play"):
                     self.mcts = MCTS(
@@ -129,7 +128,7 @@ class MCTSTrainer:
                 self.train_examples_history.pop(0)
             # backup history to a file
             # NB! the examples were collected using the model from the previous iteration, so (i-1)
-            self.save_train_examples(i - 1)
+            self._save_train_examples(i - 1)
 
             # shuffle examples before training
             train_examples = []
@@ -138,30 +137,32 @@ class MCTSTrainer:
             shuffle(train_examples)
 
             # training new network, keeping a copy of the old one
-            self.nnet.save_checkpoint(filename="temp.pth.tar")
-            self.pnet.load_checkpoint(filename="temp.pth.tar")
+            self.nnet.save_checkpoint(filename=self.hparams.temp_model_name)
+            self.pnet.load_checkpoint(filename=self.hparams.temp_model_name)
             pmcts = MCTS(self.game, self.pnet, self.hparams)
 
-            pi_losses, v_losses = self.train(train_examples)
-            self._update_running_vals({
-                "pi_loss": pi_losses,
-                "v_loss": v_losses
-            }, prefix="loss")
+            pi_losses, v_losses, total_losses = self.nnet.train(train_examples)
+            self._update_running_vals(
+                {
+                    "pi_loss": pi_losses.avg,
+                    "v_loss": v_losses.avg,
+                    "total_loss": total_losses.avg,
+                },
+                prefix="loss",
+            )
             nmcts = MCTS(self.game, self.nnet, self.hparams)
 
             LOG_INFO("PITTING AGAINST PREVIOUS VERSION")
             arena = Arena(
-                lambda x: np.argmax(pmcts.get_action_prob(x, temp=0)),
-                lambda x: np.argmax(nmcts.get_action_prob(x, temp=0)),
-                self.game,
+                lambda x: int(np.argmax(pmcts.get_action_prob(x, temp=0))),
+                lambda x: int(np.argmax(nmcts.get_action_prob(x, temp=0))),
+                self.game
             )
-            pwins, nwins, draws = arena.play_games(self.hparams.arena_compare)
+            pwins, nwins, draws = arena.play_games(self.hparams.arena_compare, self.hparams.verbose)
 
-            self._update_running_vals({
-                "pwins": pwins,
-                "nwins": nwins,
-                "draws": draws
-            }, prefix="arena")
+            self._update_running_vals(
+                {"opponent_wins": pwins, "agent_wins": nwins, "draws": draws}, prefix="arena"
+            )
             self._log_to_tensorboard(i)
 
             LOG_INFO("NEW/PREV WINS : %d / %d ; DRAWS : %d" % (nwins, pwins, draws))
@@ -170,31 +171,25 @@ class MCTSTrainer:
                 or float(nwins) / (pwins + nwins) < self.hparams.update_threshold
             ):
                 LOG_INFO("REJECTING NEW MODEL")
-                self.nnet.load_checkpoint(
-                    folder=self.hparams.checkpoint_dir, filename="temp.pth.tar"
-                )
+                self.nnet.load_checkpoint(filename=self.hparams.temp_model_name)
             else:
                 LOG_INFO("ACCEPTING NEW MODEL")
-                self.nnet.save_checkpoint(
-                    folder=self.hparams.checkpoint_dir, filename=self.get_checkpoint_file(i)
-                )
-                self.nnet.save_checkpoint(
-                    folder=self.hparams.checkpoint_dir, filename="best.pth.tar"
-                )
+                self.nnet.save_checkpoint(filename=self._get_checkpoint_file(i))
+                self.nnet.save_checkpoint(filename=self.hparams.best_model_name)
 
-    def get_checkpoint_file(self, iteration):
+    def _get_checkpoint_file(self, iteration):
         return "checkpoint_" + str(iteration) + ".pth.tar"
 
-    def save_train_examples(self, iteration):
-        LOG_INFO(f"Saving trainExamples to file after %d iteration", iteration)
-        folder = self.hparams.checkpoint_dir
-        folder.mkdir(parents=True, exist_ok=True)
-        filename = (folder / self.get_checkpoint_file(iteration)).with_suffix(".examples")
+    def _save_train_examples(self, iteration):
+        LOG_INFO("Saving train_examples to file after %d iteration", iteration)
+        filename = (
+            self.hparams.checkpoint_dir / self._get_checkpoint_file(iteration)
+        ).with_suffix(".examples")
         with open(filename, "wb+") as f:
             Pickler(f).dump(self.train_examples_history)
 
-    def load_train_examples(self):
-        modelFile = self.hparams.load_folder_file[0] / self.hparams.load_folder_file[1]
+    def _load_train_examples(self):
+        modelFile = self.hparams.checkpoint_dir / self.hparams.best_model_name
         examplesFile = modelFile.with_suffix(".examples")
         assert (
             examplesFile.is_file()
@@ -213,7 +208,7 @@ class MCTSTrainer:
 
     def _update_running_vals(self, items: dict[str, Any], prefix=None):
         """Update the running values.
-        
+
         Args:
             items: Dictionary containing the values.
             prefix: Prefix for the keys."""
@@ -223,6 +218,15 @@ class MCTSTrainer:
             elif isinstance(value, np.ndarray):
                 value = value.item()
             if prefix is None:
-                self._running_vals[key].append(value)
+                self._running_vals[key].update(value)
             else:
-                self._running_vals[f"{prefix}/{key}"].append(value)
+                self._running_vals[f"{prefix}/{key}"].update(value)
+
+    def _build_hparams(self, hparams: MCTSHparams):
+        """Build hyperparameters."""
+        self.hparams = hparams
+        # Create the checkpoint and log dir if they don't exist
+        self.hparams.checkpoint_dir.mkdir(parents=True, exist_ok=True)
+        self.hparams.log_dir.mkdir(parents=True, exist_ok=True)
+        # Save the hyperparameters
+        hparams.dump_to_yaml(hparams.checkpoint_dir.parent / "hparams.yaml")

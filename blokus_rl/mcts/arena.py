@@ -12,7 +12,7 @@ class Arena:
     An Arena class where any 2 agents can be pit against each other.
     """
 
-    def __init__(self, player1, player2, game: BlokusGameWrapper, display=None):
+    def __init__(self, player1, player2, game: BlokusGameWrapper):
         """
         Input:
             player 1,2: two functions that takes board as input, return action
@@ -27,7 +27,6 @@ class Arena:
         self.player1 = player1
         self.player2 = player2
         self.game = game
-        self.display = display
 
     def play_game(self, verbose=False):
         """
@@ -44,10 +43,6 @@ class Arena:
         it = 0
         while self.game.get_game_ended(board, player) == 0:
             it += 1
-            if verbose:
-                assert self.display
-                print("Turn ", str(it), "Player ", str(player))
-                self.display(board)
             action = players[player - 1](self.game.get_canonical_form(board, player))
 
             valids = self.game.get_valid_moves(
@@ -59,15 +54,17 @@ class Arena:
                 log.debug(f"valids = {valids}")
                 assert valids[action] > 0
             board, player = self.game.get_next_state(board, player, action)
+            if verbose:
+                print("Turn ", str(it), "Player ", str(player))
+                self.game.display(board)
         if verbose:
-            assert self.display
             print(
                 "Game over: Turn ",
                 str(it),
                 "Result ",
-                str(self.game.get_game_ended(board, 1)),
+                str(self.game.get_game_ended(board, 1, verbose=verbose)),
             )
-            self.display(board)
+            self.game.display(board)
         return self.game.get_game_ended(board, 1)
 
     def play_games(self, num, verbose=False):
@@ -81,7 +78,7 @@ class Arena:
             draws:  games won by nobody
         """
 
-        num = int(num / 2)
+        num = num // 2
         one_won = 0
         two_won = 0
         draws = 0

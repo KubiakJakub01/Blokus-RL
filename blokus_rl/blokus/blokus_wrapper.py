@@ -7,7 +7,7 @@ from pathlib import Path
 
 import cython
 
-from ..utils import LOG_INFO
+from ..utils import LOG_INFO, LOG_WARNING
 from .game.blokus_game import BlokusGame
 from .game.board import Board
 from .players.player import AiPlayer, Player
@@ -62,7 +62,7 @@ class BlokusGameWrapper:
         for i in range(1, self.NUMBER_OF_PLAYERS + 1):
             blokus_game.add_player(
                 AiPlayer(
-                    i, f"Player {i}", self.all_possible_indexes_to_moves, blokus_game
+                    i, f"Player_{i}", self.all_possible_indexes_to_moves, blokus_game
                 )
             )
         return blokus_game, blokus_game.next_player().index
@@ -122,7 +122,7 @@ class BlokusGameWrapper:
             mask[index] = 1
         return mask
 
-    def get_game_ended(self, blokus_game: BlokusGame, player: int | None = None):
+    def get_game_ended(self, blokus_game: BlokusGame, player: int | None = None, verbose=False):
         """
         Input:
             blokus_game: blokus game object
@@ -147,6 +147,9 @@ class BlokusGameWrapper:
                 reward = self.rewards["lost"]
         else:
             reward = self.rewards["default"]
+
+        if verbose:
+            print(f"Player {player} winners: {winners} reward: {reward}")
 
         return reward
 
@@ -206,17 +209,28 @@ class BlokusGameWrapper:
             move: a random move
         """
         return blokus_game.next_player().sample_move_idx()
+    
+    def display(self, blokus_game: BlokusGame):
+        """
+        Input:
+            blokus_game: blokus game object
+
+        Returns:
+            None
+        """
+        print(blokus_game.board.tensor.numpy())
 
     def _set_all_possible_moves(self):
         """Set all possible moves."""
 
         if self.states_fp.exists():
+            LOG_INFO("Loading all possible states from %s", str(self.states_fp))
             with open(self.states_fp) as json_file:
                 self.all_possible_indexes_to_moves = [
                     Shape.from_json(move) for move in json.load(json_file)
                 ]
         else:
-            print("Building all possible states, this may take some time")
+            LOG_WARNING("Building all possible states, this may take some time")
             board = Board(self.BOARD_SIZE)
             blokus_game = BlokusGame(board, self.all_shapes, self.NUMBER_OF_PLAYERS)
             dummy = Player("", "", self.all_shapes, blokus_game)

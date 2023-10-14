@@ -11,9 +11,6 @@ import yaml
 class HParams:
     """Common hyperparameters for training and testing."""
     # Experiment parameters
-    gym_env: str = field(
-        default="blokus_gym:blokus-simple-v0", metadata={"help": "Gym environment ID"}
-    )
     checkpoint_dir: Path = field(
         default=Path("models/checkpoints"),
         metadata={"help": "Directory to save checkpoints"},
@@ -30,9 +27,6 @@ class HParams:
     )
     cuda: bool = field(default=True, metadata={"help": "Whether to use CUDA"})
     seed: int = field(default=42, metadata={"help": "Seed for the experiment"})
-    num_envs: int = field(
-        default=4, metadata={"help": "Number of parallel environments"}
-    )
     wanda: bool = field(default=False, metadata={"help": "Whether to use wandb"})
     wandb_project_name: str = field(
         default="blokus", metadata={"help": "Wandb project name"}
@@ -56,20 +50,42 @@ class HParams:
     detect_anomaly: bool = field(
         default=False, metadata={"help": "Whether to detect autograd anomalies"}
     )
+    verbose: bool = field(
+        default=False, metadata={"help": "Whether to print debug information"}
+    )
 
     def __post_init__(self):
         self.start_time = datetime.now().strftime("%Y%m%d_%H%M%S")
         self.run_name = f"{self.experiment_name}_{self.start_time}"
+        self.checkpoint_dir = Path(self.checkpoint_dir)
+        self.log_dir = Path(self.log_dir)
 
-    def save(self, hparam_fp: Path) -> None:
+    def dump_to_yaml(self, hparam_fp: Path) -> None:
         """Save hyperparameters to a YAML file."""
         with open(hparam_fp, "w", encoding="utf-8") as f:
-            yaml.dump(self.__dict__, f, default_flow_style=False)
+            yaml.dump(self._hparams_to_dict(), f, default_flow_style=False)
 
+    def _hparams_to_dict(self):
+        """Convert hyperparameters to a dictionary."""
+        hparams_dict = {}
+        for key, value in self.__dict__.items():
+            if isinstance(value, Path):
+                hparams_dict[key] = str(value)
+            else:
+                hparams_dict[key] = value
+        return hparams_dict
 
 @dataclass
 class PPOHparams(HParams):
     """Hyperparameters for PPO."""
+    # Environment parameters
+    gym_env: str = field(
+        default="blokus_gym:blokus-simple-v0", metadata={"help": "Gym environment ID"}
+    )
+    num_envs: int = field(
+        default=4, metadata={"help": "Number of parallel environments"}
+    )
+
     # Model parameters
     agent_type: Literal["mlp", "cnn"] = field(
         default="mlp", metadata={"help": "Type of agent to use"}
@@ -158,6 +174,7 @@ class MCTSHparams(HParams):
     )
     states_dir: Path = field(
         default=Path("states"), metadata={"help":"Dir for blokus game states"})
+
     # Model parameters
     lr: float = field(default=0.001, metadata={"help": "Learning rate"})
     dropout: float = field(default=0.3, metadata={"help": "Dropout probability"})
@@ -188,8 +205,11 @@ class MCTSHparams(HParams):
 
     # Checkpoint parameters
     load_model: bool = field(default=False, metadata={"help": "Whether to load model"})
-    load_folder_file: tuple[Path, Path] = field(
-        default=("./temp/", "best.pth.tar"), metadata={"help": "Folder to load model"}
+    best_model_name: str = field(
+        default="best.pth.tar", metadata={"help": "Name of the best model"}
+    )
+    temp_model_name: str = field(
+        default="temp.pth.tar", metadata={"help": "Name of the temporary model"}
     )
     num_iters_for_train_examples_history: int = field(
         default=20, metadata={"help": "Number of iterations for train examples history"}
