@@ -4,6 +4,7 @@ from pathlib import Path
 
 from .hparams import HParams, load_hparams
 from .ppo import PPOTrainer
+from .mcts import MCTSTrainer
 from .utils import LOG_INFO, seed, set_environ
 
 
@@ -12,33 +13,37 @@ def get_params():
     parser.add_argument(
         "--hparams_fp",
         type=Path,
-        required=False,
+        default=None,
         help="Path to a YAML file containing hyperparameters.",
     )
     parser.add_argument(
+        "-a",
         "--algorithm",
         type=str,
-        choices=["ppo"],
+        choices=["ppo", "mcts"],
         default="ppo",
         help="Algorithm to use for training.",
     )
     return parser.parse_args()
 
 
-def train(hparams: HParams):
+def train(algo: str, hparams: HParams):
     """Train a model."""
-    trainer = PPOTrainer(hparams)
+    if algo == "ppo":
+        trainer = PPOTrainer(hparams)
+    elif algo == "mcts":
+        trainer = MCTSTrainer(hparams)
     trainer.train()
-
 
 if __name__ == "__main__":
     # Parse command line arguments
     args = get_params()
 
-    # Load hyperparameters
-    hparams = load_hparams(args.hparams_fp)
+    # Load hyperparameters and trainer
+    hparams = load_hparams(args.hparams_fp, args.algorithm)
 
-    LOG_INFO(f"Run name: {hparams.run_name}")
+    LOG_INFO("Training model with %s algorithm", args.algorithm)
+    # LOG_INFO("Run name: %s", hparams.run_name)
     # Set up wandb
     if hparams.wanda:
         import wandb
@@ -58,4 +63,4 @@ if __name__ == "__main__":
     set_environ(hparams)
     seed(hparams.seed)
 
-    train(hparams)
+    train(args.algorithm, hparams)

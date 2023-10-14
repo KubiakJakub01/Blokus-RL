@@ -57,6 +57,10 @@ class HParams:
         default=False, metadata={"help": "Whether to detect autograd anomalies"}
     )
 
+    def __post_init__(self):
+        self.start_time = datetime.now().strftime("%Y%m%d_%H%M%S")
+        self.run_name = f"{self.experiment_name}_{self.start_time}"
+
     def save(self, hparam_fp: Path) -> None:
         """Save hyperparameters to a YAML file."""
         with open(hparam_fp, "w", encoding="utf-8") as f:
@@ -139,15 +143,21 @@ class PPOHparams(HParams):
     )
 
     def __post_init__(self):
-        self.start_time = datetime.now().strftime("%Y%m%d_%H%M%S")
-        self.run_name = f"{self.experiment_name}_{self.start_time}"
+        super().__post_init__()
         self.batch_size = self.num_envs * self.num_steps
         self.minibatch_size = self.batch_size // self.num_minibatches
         self.num_updates = self.total_timesteps // self.batch_size
 
 @dataclass
-class HparamsMCTS:
+class MCTSHparams(HParams):
     """Hyperparameters for MCTS."""
+    # Board parameters
+    board_size: int = field(default=7, metadata={"help": "Size of the board"})
+    number_of_players: int = field(
+        default=2, metadata={"help": "Number of players in the game"}
+    )
+    states_dir: Path = field(
+        default=Path("states"), metadata={"help":"Dir for blokus game states"})
     # Model parameters
     lr: float = field(default=0.001, metadata={"help": "Learning rate"})
     dropout: float = field(default=0.3, metadata={"help": "Dropout probability"})
@@ -157,45 +167,48 @@ class HparamsMCTS:
     linear_dim: int = field(default=128, metadata={"help": "Linear layer dimension"})
 
     # Training parameters
-    numIters: int = field(default=1000, metadata={"help": "Number of iterations"})
-    numEps: int = field(default=100, metadata={"help": "Number of episodes"})
-    tempThreshold: int = field(
+    num_iters: int = field(default=1000, metadata={"help": "Number of iterations"})
+    num_eps: int = field(default=100, metadata={"help": "Number of episodes"})
+    temp_threshold: int = field(
         default=15, metadata={"help": "Temperature threshold"}
     )
-    updateThreshold: float = field(
+    update_threshold: float = field(
         default=0.6, metadata={"help": "Update threshold"}
     )
-    maxlenOfQueue: int = field(
+    max_len_of_queue: int = field(
         default=200000, metadata={"help": "Maximum length of queue"}
     )
-    numMCTSSims: int = field(
+    num_mcts_sims: int = field(
         default=25, metadata={"help": "Number of MCTS simulations"}
     )
-    arenaCompare: int = field(
+    arena_compare: int = field(
         default=40, metadata={"help": "Number of arena comparisons"}
     )
     cpuct: int = field(default=1, metadata={"help": "CPUCT"})
 
     # Checkpoint parameters
     load_model: bool = field(default=False, metadata={"help": "Whether to load model"})
-    load_folder_file: tuple[str, str] = field(
+    load_folder_file: tuple[Path, Path] = field(
         default=("./temp/", "best.pth.tar"), metadata={"help": "Folder to load model"}
     )
-    numItersForTrainExamplesHistory: int = field(
+    num_iters_for_train_examples_history: int = field(
         default=20, metadata={"help": "Number of iterations for train examples history"}
     )
 
+    def __post_init__(self):
+        super().__post_init__()
 
 
-def get_hparams(algorithm: str = "ppo") -> HParams:
+def get_hparams(algorithm: str = "ppo"):
     """Get hyperparameters for a given algorithm."""
     hparams_dict = {
         "ppo": PPOHparams,
+        "mcts": MCTSHparams
     }
     return hparams_dict[algorithm]
 
 
-def load_hparams(hparam_fp: Path | None = None, algorithm: str = "ppo") -> PPOHparams:
+def load_hparams(hparam_fp: Path | None = None, algorithm: str = "ppo"):
     """Load hyperparameters from a YAML file."""
     if hparam_fp is None:
         return get_hparams(algorithm)

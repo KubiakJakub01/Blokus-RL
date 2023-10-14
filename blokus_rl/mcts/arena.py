@@ -70,7 +70,7 @@ class Arena:
             self.display(board)
         return self.game.get_game_ended(board, 1)
 
-    def playGames(self, num, verbose=False):
+    def play_games(self, num, verbose=False):
         """
         Plays num games in which player1 starts num/2 games and player2 starts
         num/2 games.
@@ -82,34 +82,34 @@ class Arena:
         """
 
         num = int(num / 2)
-        oneWon = 0
-        twoWon = 0
+        one_won = 0
+        two_won = 0
         draws = 0
 
         with tqdm(range(num), desc="Arena.playGames (1)") as pbar:
             for _ in range(num):
-                gameResult = self.play_game(verbose=verbose)
-                if gameResult == 1:
-                    oneWon += 1
-                elif gameResult == -1:
-                    twoWon += 1
+                game_result = self.play_game(verbose=verbose)
+                if game_result == 1:
+                    one_won += 1
+                elif game_result == -1:
+                    two_won += 1
                 else:
                     draws += 1
                 pbar.update()
-                pbar.set_postfix(oneWon=oneWon, twoWon=twoWon, draws=draws)
+                pbar.set_postfix(oneWon=one_won, twoWon=two_won, draws=draws)
 
         self.player1, self.player2 = self.player2, self.player1
 
         with tqdm(range(num), desc="Arena.playGames (2)") as pbar:
             for _ in range(num):
-                gameResult = self.play_game(verbose=verbose)
-                if gameResult == -1:
-                    oneWon += 1
-                elif gameResult == 1:
-                    twoWon += 1
+                game_result = self.play_game(verbose=verbose)
+                if game_result == -1:
+                    one_won += 1
+                elif game_result == 1:
+                    two_won += 1
                 else:
                     draws += 1
                 pbar.update()
-                pbar.set_postfix(oneWon=oneWon, twoWon=twoWon, draws=draws)
+                pbar.set_postfix(oneWon=one_won, twoWon=two_won, draws=draws)
 
-        return oneWon, twoWon, draws
+        return one_won, two_won, draws

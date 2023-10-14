@@ -6,7 +6,7 @@ import math
 import numpy as np
 
 from ..blokus import BlokusGameWrapper, BlokusNNet
-from ..hparams import HparamsMCTS
+from ..hparams import MCTSHparams
 
 EPS = 1e-8
 
@@ -18,7 +18,7 @@ class MCTS:
     This class handles the MCTS tree.
     """
 
-    def __init__(self, game: BlokusGameWrapper, nnet: BlokusNNet, hparams: HparamsMCTS):
+    def __init__(self, game: BlokusGameWrapper, nnet: BlokusNNet, hparams: MCTSHparams):
         self.game = game
         self.nnet = nnet
         self.hparams = hparams
@@ -42,7 +42,7 @@ class MCTS:
             probs: a policy vector where the probability of the ith action is
                    proportional to Nsa[(s,a)]**(1./temp)
         """
-        for _ in range(self.hparams.numMCTSSims):
+        for _ in range(self.hparams.num_mcts_sims):
             self.search(copy.deepcopy(canonicalBoard))
         s = self.game.string_representation(canonicalBoard)
         counts = [

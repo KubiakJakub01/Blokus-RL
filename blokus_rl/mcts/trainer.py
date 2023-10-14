@@ -10,7 +10,7 @@ from torch import Tensor
 from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
 
-from ..blokus import BlokusGameWrapper, BlokusNNet, BlokusNNetWrapper
+from ..blokus import BlokusGameWrapper, BlokusNNetWrapper
 from ..hparams import MCTSHparams
 from ..utils import LOG_INFO, LOG_WARNING, AverageMeter
 from .arena import Arena
@@ -45,6 +45,8 @@ class MCTSTrainer:
         self.skip_first_self_play = False
         self._running_vals = defaultdict(AverageMeter)
 
+        LOG_INFO("Trainer initialized with device %s", self.device)
+
     def execute_episode(self):
         """
         This function executes one episode of self-play, starting with player 1.
@@ -69,7 +71,7 @@ class MCTSTrainer:
         while True:
             episodeStep += 1
             canonicalBoard = self.game.get_canonical_form(board, self.curPlayer)
-            temp = int(episodeStep < self.hparams.tempThreshold)
+            temp = int(episodeStep < self.hparams.temp_threshold)
 
             pi = self.mcts.get_action_prob(copy.deepcopy(canonicalBoard), temp=temp)
             sym = self.game.get_symmetries(canonicalBoard, pi)
@@ -101,14 +103,14 @@ class MCTSTrainer:
         only if it wins >= updateThreshold fraction of games.
         """
 
-        for i in range(1, self.hparams.numIters + 1):
+        for i in range(1, self.hparams.num_iters + 1):
             # bookkeeping
             LOG_INFO("Starting Iter #%d ...", i)
             # examples of the iteration
             if not self.skip_first_self_play or i > 1:
-                iteration_train_examples = deque([], maxlen=self.hparams.maxlenOfQueue)
+                iteration_train_examples = deque([], maxlen=self.hparams.max_len_of_queue)
 
-                for _ in tqdm(range(self.hparams.numEps), desc="Self Play"):
+                for _ in tqdm(range(self.hparams.num_eps), desc="Self Play"):
                     self.mcts = MCTS(
                         self.game, self.nnet, self.hparams
                     )  # reset search tree
@@ -119,7 +121,7 @@ class MCTSTrainer:
 
             if (
                 len(self.train_examples_history)
-                > self.hparams.numItersForTrainExamplesHistory
+                > self.hparams.num_iters_for_train_examples_history
             ):
                 LOG_WARNING(
                     f"Removing the oldest entry in trainExamples. len(trainExamplesHistory) = {len(self.train_examples_history)}"
@@ -153,7 +155,7 @@ class MCTSTrainer:
                 lambda x: np.argmax(nmcts.get_action_prob(x, temp=0)),
                 self.game,
             )
-            pwins, nwins, draws = arena.play_games(self.hparams.arenaCompare)
+            pwins, nwins, draws = arena.play_games(self.hparams.arena_compare)
 
             self._update_running_vals({
                 "pwins": pwins,
@@ -165,7 +167,7 @@ class MCTSTrainer:
             LOG_INFO("NEW/PREV WINS : %d / %d ; DRAWS : %d" % (nwins, pwins, draws))
             if (
                 pwins + nwins == 0
-                or float(nwins) / (pwins + nwins) < self.hparams.updateThreshold
+                or float(nwins) / (pwins + nwins) < self.hparams.update_threshold
             ):
                 LOG_INFO("REJECTING NEW MODEL")
                 self.nnet.load_checkpoint(

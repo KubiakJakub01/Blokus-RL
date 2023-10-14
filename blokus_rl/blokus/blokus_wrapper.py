@@ -2,11 +2,12 @@
 import itertools
 import json
 import multiprocessing as mp
-import os
 from functools import partial
+from pathlib import Path
 
 import cython
 
+from ..utils import LOG_INFO
 from .game.blokus_game import BlokusGame
 from .game.board import Board
 from .players.player import AiPlayer, Player
@@ -26,9 +27,9 @@ class BlokusGameWrapper:
 
     rewards = {"won": 1, "tie-won": 0.1, "default": 0, "invalid": -100, "lost": -1}
 
-    def __init__(self, board_size: int, number_of_players: int, states_fp=None):
+    def __init__(self, board_size: int, number_of_players: int, states_dir: Path):
         """Initializes the Blokus game wrapper.
-        
+
         Args:
             board_size: An integer representing the size of the board.
             number_of_players: An integer representing the number of players.
@@ -37,14 +38,16 @@ class BlokusGameWrapper:
             print(
                 "You should run 'python setup.py build_ext --inplace' to get a 3x speedup"
             )
-        self.STATES_FOLDER = "states"
+        self.states_dir = states_dir
+        self.states_dir.mkdir(parents=True, exist_ok=True)
+        self.states_filename = f"board_{board_size}_players_{number_of_players}.json"
+        self.states_fp = self.states_dir / self.states_filename
         self.all_possible_indexes_to_moves = None
         self.starter_won = 0
         self.last_won = 0
         self.games_played = 0
         self.BOARD_SIZE = board_size
         self.NUMBER_OF_PLAYERS = number_of_players
-        self.states_fp = states_fp
         self.all_shapes = get_all_shapes()
         self._set_all_possible_moves()
 
@@ -102,7 +105,7 @@ class BlokusGameWrapper:
         blokus_game.play()
         return blokus_game, blokus_game.next_player().index
 
-    def get_valid_moves(self, blokus_game: BlokusGame, player: int) -> list[int]:
+    def get_valid_moves(self, blokus_game: BlokusGame) -> list[int]:
         """
         Input:
             blokus_game: blokus game object
@@ -119,7 +122,7 @@ class BlokusGameWrapper:
             mask[index] = 1
         return mask
 
-    def get_game_ended(self, blokus_game: BlokusGame, player: int):
+    def get_game_ended(self, blokus_game: BlokusGame, player: int | None = None):
         """
         Input:
             blokus_game: blokus game object
@@ -130,6 +133,8 @@ class BlokusGameWrapper:
                small non-zero value for draw.
 
         """
+        if player is None:
+            player = blokus_game.next_player().index
         winners = blokus_game.winners()
         done = winners is not None
         if done:
@@ -205,7 +210,7 @@ class BlokusGameWrapper:
     def _set_all_possible_moves(self):
         """Set all possible moves."""
 
-        if os.path.exists(self.states_fp):
+        if self.states_fp.exists():
             with open(self.states_fp) as json_file:
                 self.all_possible_indexes_to_moves = [
                     Shape.from_json(move) for move in json.load(json_file)
@@ -231,7 +236,6 @@ class BlokusGameWrapper:
                 for idx, move in enumerate(self.all_possible_indexes_to_moves)
             ]
 
-            os.makedirs(self.STATES_FOLDER, exist_ok=True)
             with open(self.states_fp, "w") as json_file:
                 json.dump(data, json_file)
-            print(f"{self.states_fp} has been saved")
+            LOG_INFO("%s has been saved", str(self.states_fp))
