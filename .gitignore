@@ -7,3 +7,4 @@ optuna.db
 *.log
 **/*.c
 **/*.so
+build/
