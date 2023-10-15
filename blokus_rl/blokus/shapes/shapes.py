@@ -1,7 +1,7 @@
 from ..shapes.shape import Shape
 
 
-def get_all_shapes():
+def get_all_shapes() -> list[Shape]:
     return [
         I1(),
         I2(),

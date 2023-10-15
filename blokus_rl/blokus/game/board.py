@@ -7,6 +7,7 @@ import torch
 from ..players.player import Player
 from ..shapes.shape import Shape
 
+plt.switch_backend('agg')
 
 class Board:
     """
@@ -99,10 +100,11 @@ class Board:
         print(f"Coverage: {coverage:.2f}%")
 
     def fancy_board(self):
-        plt.clf()
-
+        fig, ax = plt.subplots()
+        ax.set_xlim(0, self.size)
+        ax.set_ylim(0, self.size)
         colors = {0: "lightgrey", 1: "red", 2: "blue", 3: "yellow", 4: "green"}
-        ax = plt.subplot(xlim=(0, self.size), ylim=(0, self.size))
+
         for y in range(self.size):
             for x in range(self.size):
                 polygon = plt.Polygon(
@@ -114,5 +116,17 @@ class Board:
         plt.yticks(np.arange(0, self.size, 1))
         plt.xticks(np.arange(0, self.size, 1))
         plt.grid()
-        plt.draw()
-        plt.pause(0.00001)
+
+        # Save the current frame as an image
+        # buf = io.BytesIO()
+        # plt.savefig(buf, format='png')
+        # buf.seek(0)
+        # frame = imageio.imread(buf)
+
+        # Render the image and convert it to a NumPy array
+        fig.canvas.draw()
+        image_data = np.frombuffer(fig.canvas.tostring_rgb(), dtype=np.uint8)
+        image_data = image_data.reshape(fig.canvas.get_width_height()[::-1] + (3,))
+        plt.close(fig)  # Close the figure to free up resources
+
+        return image_data

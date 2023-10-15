@@ -218,7 +218,17 @@ class BlokusGameWrapper:
         Returns:
             None
         """
-        print(blokus_game.board.tensor.numpy())
+        return print(blokus_game.board.tensor.numpy())
+
+    def render(self, blokus_game: BlokusGame):
+        """
+        Input:
+            blokus_game: blokus game object
+
+        Returns:
+            None
+        """
+        return blokus_game.board.fancy_board()
 
     def _set_all_possible_moves(self):
         """Set all possible moves."""
@@ -233,7 +243,7 @@ class BlokusGameWrapper:
             LOG_WARNING("Building all possible states, this may take some time")
             board = Board(self.BOARD_SIZE)
             blokus_game = BlokusGame(board, self.all_shapes, self.NUMBER_OF_PLAYERS)
-            dummy = Player("", "", self.all_shapes, blokus_game)
+            dummy = Player(1, "", self.all_shapes, blokus_game)
 
             # self.all_possible_indexes_to_moves = possible_moves_func(dummy, self.BOARD_SIZE, self.all_shapes)
             number_of_cores_to_use = mp.cpu_count() // 2
