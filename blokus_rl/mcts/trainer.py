@@ -46,8 +46,11 @@ class MCTSTrainer:
         # Agent and opponent neural nets with monte carlo tree search
         self.nnet = BlokusNNetWrapper(self.game, self.hparams, self.device)
         self.pnet = BlokusNNetWrapper(self.game, self.hparams, self.device)
+        self.interation = 0
         if self.hparams.load_checkpoint_step is not None:
+            LOG_INFO("Starting from checkpoint %d", self.hparams.load_checkpoint_step)
             self._load_checkpoint(self.hparams.load_checkpoint_step)
+            self.interation = self.hparams.load_checkpoint_step
         self.mcts = MCTS(self.game, self.nnet, self.hparams)
 
         # history of examples from num_iters_for_train_examples_history latest iterations
@@ -111,9 +114,9 @@ class MCTSTrainer:
         only if it wins >= updateThreshold fraction of games.
         """
 
-        for i in range(1, self.hparams.num_iters + 1):
-            # bookkeeping
+        for i in range(self.interation + 1, self.hparams.num_iters + 1):
             LOG_INFO("Starting Iter #%d ...", i)
+            self.interation += 1
             # examples of the iteration
             if not self.skip_first_self_play or i > 1:
                 iteration_train_examples = deque(
@@ -216,7 +219,7 @@ class MCTSTrainer:
         )
         assert (
             examples_fp.is_file()
-        ), f"File with trainExamples not found: {examples_fp}"
+        ), f"File with train_examples not found: {examples_fp}"
         LOG_INFO("Loading checkpoint '%s'", model_filename)
         self.nnet.load_checkpoint(filename=model_filename)
         self.pnet.load_checkpoint(filename=model_filename)
