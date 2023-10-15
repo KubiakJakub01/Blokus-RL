@@ -15,6 +15,9 @@ class HParams:
         default=Path("models/checkpoints"),
         metadata={"help": "Directory to save checkpoints"},
     )
+    load_checkpoint_step: int | None = field(
+        default=None, metadata={"help": "Step to load the checkpoint from. If None, checkpoint is not loaded"}
+    )
     log_dir: Path = field(
         default=Path("models/logs"),
         metadata={"help": "Directory to save tensorboard logs"},
@@ -58,6 +61,7 @@ class HParams:
         self.start_time = datetime.now().strftime("%Y%m%d_%H%M%S")
         self.run_name = f"{self.experiment_name}_{self.start_time}"
         self.checkpoint_dir = Path(self.checkpoint_dir)
+        self.video_dir = Path(self.video_dir)
         self.log_dir = Path(self.log_dir)
 
     def dump_to_yaml(self, hparam_fp: Path) -> None:
@@ -204,7 +208,6 @@ class MCTSHparams(HParams):
     cpuct: int = field(default=1, metadata={"help": "CPUCT"})
 
     # Checkpoint parameters
-    load_model: bool = field(default=False, metadata={"help": "Whether to load model"})
     best_model_name: str = field(
         default="best.pth.tar", metadata={"help": "Name of the best model"}
     )

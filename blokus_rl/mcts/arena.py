@@ -12,23 +12,19 @@ class Arena:
     An Arena class where any 2 agents can be pit against each other.
     """
 
-    def __init__(self, player1, player2, game: BlokusGameWrapper):
+    def __init__(self, player1, player2, game: BlokusGameWrapper, capture_video=False):
         """
         Input:
             player 1,2: two functions that takes board as input, return action
             game: Game object
-            display: a function that takes board as input and prints it (e.g.
-                     display in othello/OthelloGame). Is necessary for verbose
-                     mode.
-
-        see othello/OthelloPlayers.py for an example. See pit.py for pitting
-        human players/other baselines with each other.
+            capture_video: whether to capture video of the game
         """
         self.player1 = player1
         self.player2 = player2
         self.game = game
+        self.capture_video = capture_video
 
-    def play_game(self, verbose=False):
+    def play_game(self, verbose=False, capture_video=False):
         """
         Executes one episode of a game.
 
@@ -38,9 +34,12 @@ class Arena:
             or
                 draw result returned from the game that is neither 1, -1, nor 0.
         """
+        frames = []
         players = [self.player1, self.player2]
         board, player = self.game.get_init_board()
         it = 0
+        if capture_video:
+            frames.append(self.game.render(board))
         while self.game.get_game_ended(board, player) == 0:
             it += 1
             action = players[player - 1](self.game.get_canonical_form(board, player))
@@ -57,6 +56,8 @@ class Arena:
             if verbose:
                 print("Turn ", str(it), "Player ", str(player))
                 self.game.display(board)
+            if capture_video:
+                frames.append(self.game.render(board))
         if verbose:
             print(
                 "Game over: Turn ",
@@ -65,7 +66,7 @@ class Arena:
                 str(self.game.get_game_ended(board, 1, verbose=verbose)),
             )
             self.game.display(board)
-        return self.game.get_game_ended(board, 1)
+        return self.game.get_game_ended(board, 1), frames
 
     def play_games(self, num, verbose=False):
         """
@@ -85,7 +86,7 @@ class Arena:
 
         with tqdm(range(num), desc="Arena.playGames (1)") as pbar:
             for _ in range(num):
-                game_result = self.play_game(verbose=verbose)
+                game_result, _ = self.play_game(verbose=verbose)
                 if game_result == 1:
                     one_won += 1
                 elif game_result == -1:
@@ -99,7 +100,7 @@ class Arena:
 
         with tqdm(range(num), desc="Arena.playGames (2)") as pbar:
             for _ in range(num):
-                game_result = self.play_game(verbose=verbose)
+                game_result, _ = self.play_game(verbose=verbose)
                 if game_result == -1:
                     one_won += 1
                 elif game_result == 1:
@@ -109,4 +110,8 @@ class Arena:
                 pbar.update()
                 pbar.set_postfix(oneWon=one_won, twoWon=two_won, draws=draws)
 
-        return one_won, two_won, draws
+        frames = []
+        if self.capture_video:
+            game_result, frames = self.play_game(verbose=verbose, capture_video=True)
+
+        return one_won, two_won, draws, frames

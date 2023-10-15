@@ -2,8 +2,10 @@ import copy
 from collections import defaultdict, deque
 from pickle import Pickler, Unpickler
 from random import shuffle
+from statistics import mean
 from typing import Any
 
+import imageio
 import numpy as np
 import torch
 from torch import Tensor
@@ -12,7 +14,7 @@ from tqdm import tqdm
 
 from ..blokus import BlokusGameWrapper, BlokusNNetWrapper
 from ..hparams import MCTSHparams
-from ..utils import LOG_INFO, LOG_WARNING, AverageMeter
+from ..utils import LOG_INFO, LOG_WARNING
 from .arena import Arena
 from .mcts import MCTS
 
@@ -24,26 +26,35 @@ class MCTSTrainer:
     """
 
     def __init__(self, hparams: MCTSHparams):
+        """Initialize monte carlo tree search trainer.
+
+        Args:
+            hparams: Hyperparameters."""
         self._build_hparams(hparams)
         self.device = (
             "cuda" if torch.cuda.is_available() and self.hparams.cuda else "cpu"
         )
         self.writer = SummaryWriter(log_dir=self.hparams.log_dir)
-        # Blokus game object
+
+        # Blokus game wrapper
         self.game = BlokusGameWrapper(
             self.hparams.board_size,
             self.hparams.number_of_players,
             self.hparams.states_dir,
         )
-        # agent and opponent neural nets
+
+        # Agent and opponent neural nets with monte carlo tree search
         self.nnet = BlokusNNetWrapper(self.game, self.hparams, self.device)
         self.pnet = BlokusNNetWrapper(self.game, self.hparams, self.device)
+        if self.hparams.load_checkpoint_step is not None:
+            self._load_checkpoint(self.hparams.load_checkpoint_step)
         self.mcts = MCTS(self.game, self.nnet, self.hparams)
+
         # history of examples from num_iters_for_train_examples_history latest iterations
         self.train_examples_history = []
-        # can be overriden in load_train_examples()
-        self.skip_first_self_play = False
-        self._running_vals = defaultdict(AverageMeter)
+        self.skip_first_self_play = False  # can be overriden in load_train_examples()
+        self._model_version = 0
+        self._running_vals = self._reset_running_vals()
 
         LOG_INFO("Trainer initialized with device %s", self.device)
 
@@ -140,7 +151,6 @@ class MCTSTrainer:
             self.nnet.save_checkpoint(filename=self.hparams.temp_model_name)
             self.pnet.load_checkpoint(filename=self.hparams.temp_model_name)
             pmcts = MCTS(self.game, self.pnet, self.hparams)
-
             pi_losses, v_losses, total_losses = self.nnet.train(train_examples)
             self._update_running_vals(
                 {
@@ -156,14 +166,18 @@ class MCTSTrainer:
             arena = Arena(
                 lambda x: int(np.argmax(pmcts.get_action_prob(x, temp=0))),
                 lambda x: int(np.argmax(nmcts.get_action_prob(x, temp=0))),
-                self.game
+                self.game,
+                self.hparams.capture_video,
             )
-            pwins, nwins, draws = arena.play_games(self.hparams.arena_compare, self.hparams.verbose)
+            pwins, nwins, draws, frames = arena.play_games(
+                self.hparams.arena_compare, self.hparams.verbose
+            )
 
+            self._log_video(frames, i)
             self._update_running_vals(
-                {"opponent_wins": pwins, "agent_wins": nwins, "draws": draws}, prefix="arena"
+                {"opponent_wins": pwins, "agent_wins": nwins, "draws": draws},
+                prefix="arena",
             )
-            self._log_to_tensorboard(i)
 
             LOG_INFO("NEW/PREV WINS : %d / %d ; DRAWS : %d" % (nwins, pwins, draws))
             if (
@@ -174,8 +188,15 @@ class MCTSTrainer:
                 self.nnet.load_checkpoint(filename=self.hparams.temp_model_name)
             else:
                 LOG_INFO("ACCEPTING NEW MODEL")
+                self._model_version += 1
                 self.nnet.save_checkpoint(filename=self._get_checkpoint_file(i))
                 self.nnet.save_checkpoint(filename=self.hparams.best_model_name)
+
+            self._update_running_vals(
+                {"model_version": self._model_version}, prefix="model"
+            )
+            # log the running values to tensorboard
+            self._log_to_tensorboard(i)
 
     def _get_checkpoint_file(self, iteration):
         return "checkpoint_" + str(iteration) + ".pth.tar"
@@ -188,14 +209,18 @@ class MCTSTrainer:
         with open(filename, "wb+") as f:
             Pickler(f).dump(self.train_examples_history)
 
-    def _load_train_examples(self):
-        modelFile = self.hparams.checkpoint_dir / self.hparams.best_model_name
-        examplesFile = modelFile.with_suffix(".examples")
+    def _load_checkpoint(self, iteration):
+        model_filename = self._get_checkpoint_file(iteration)
+        examples_fp = (self.hparams.checkpoint_dir / model_filename).with_suffix(
+            ".examples"
+        )
         assert (
-            examplesFile.is_file()
-        ), f"File with trainExamples not found: {examplesFile}"
-        LOG_INFO("File with trainExamples found. Loading it...")
-        with open(examplesFile, "rb") as f:
+            examples_fp.is_file()
+        ), f"File with trainExamples not found: {examples_fp}"
+        LOG_INFO("Loading checkpoint '%s'", model_filename)
+        self.nnet.load_checkpoint(filename=model_filename)
+        self.pnet.load_checkpoint(filename=model_filename)
+        with open(examples_fp, "rb") as f:
             self.train_examples_history = Unpickler(f).load()
         LOG_INFO("Loading done!")
 
@@ -204,7 +229,11 @@ class MCTSTrainer:
 
     def _log_to_tensorboard(self, step: int):
         for key, value in self._running_vals.items():
-            self.writer.add_scalar(key, value.avg, step)
+            self.writer.add_scalar(key, mean(value), step)
+        self._running_vals = self._reset_running_vals()
+
+    def _reset_running_vals(self):
+        return defaultdict(list)
 
     def _update_running_vals(self, items: dict[str, Any], prefix=None):
         """Update the running values.
@@ -218,9 +247,21 @@ class MCTSTrainer:
             elif isinstance(value, np.ndarray):
                 value = value.item()
             if prefix is None:
-                self._running_vals[key].update(value)
+                self._running_vals[key].append(value)
             else:
-                self._running_vals[f"{prefix}/{key}"].update(value)
+                self._running_vals[f"{prefix}/{key}"].append(value)
+
+    def _log_video(self, frames, step: int):
+        """Log the video."""
+        if not self.hparams.capture_video:
+            return
+        LOG_INFO("Logging video")
+        # Add frames as images to tensorboard
+        frames_tensor = torch.tensor(np.array(frames)).permute(0, 3, 1, 2)
+        self.writer.add_images("game", frames_tensor, step)
+        # Save the video
+        video_fp = self.hparams.video_dir / f"video_{step}.mp4"
+        imageio.mimsave(video_fp, frames, fps=1)
 
     def _build_hparams(self, hparams: MCTSHparams):
         """Build hyperparameters."""
@@ -228,5 +269,7 @@ class MCTSTrainer:
         # Create the checkpoint and log dir if they don't exist
         self.hparams.checkpoint_dir.mkdir(parents=True, exist_ok=True)
         self.hparams.log_dir.mkdir(parents=True, exist_ok=True)
+        if self.hparams.capture_video:
+            self.hparams.video_dir.mkdir(parents=True, exist_ok=True)
         # Save the hyperparameters
         hparams.dump_to_yaml(hparams.checkpoint_dir.parent / "hparams.yaml")
