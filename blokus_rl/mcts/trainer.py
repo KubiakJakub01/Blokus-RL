@@ -172,11 +172,11 @@ class MCTSTrainer:
                 self.game,
                 self.hparams.capture_video,
             )
-            pwins, nwins, draws, frames = arena.play_games(
+            pwins, nwins, draws, items = arena.play_games(
                 self.hparams.arena_compare, self.hparams.verbose
             )
 
-            self._log_video(frames, i)
+            self._log_video(items, i)
             self._update_running_vals(
                 {"opponent_wins": pwins, "agent_wins": nwins, "draws": draws},
                 prefix="arena",
@@ -217,6 +217,8 @@ class MCTSTrainer:
         examples_fp = (self.hparams.checkpoint_dir / model_filename).with_suffix(
             ".examples"
         )
+        if self.hparams.best_model_name in list(self.hparams.checkpoint_dir.iterdir()):
+            model_filename = self.hparams.best_model_name
         assert (
             examples_fp.is_file()
         ), f"File with train_examples not found: {examples_fp}"
@@ -254,17 +256,29 @@ class MCTSTrainer:
             else:
                 self._running_vals[f"{prefix}/{key}"].append(value)
 
-    def _log_video(self, frames, step: int):
+    def _log_video(self, items: dict[str, Any], step: int):
         """Log the video."""
         if not self.hparams.capture_video:
             return
         LOG_INFO("Logging video")
-        # Add frames as images to tensorboard
-        frames_tensor = torch.tensor(np.array(frames)).permute(0, 3, 1, 2)
-        self.writer.add_images("game", frames_tensor, step)
-        # Save the video
-        video_fp = self.hparams.video_dir / f"video_{step}.mp4"
-        imageio.mimsave(video_fp, frames, fps=1)
+        video_dir = self.hparams.video_dir / f"step_{step}"
+        video_dir.mkdir(parents=True, exist_ok=True)
+        for item in items:
+            frames = item["frames"]
+            game_result = item["result"]
+            player = item["player"]
+            # Add frames as images to tensorboard
+            for i, frame in enumerate(frames):
+                frame = np.transpose(frame, (2, 0, 1))
+                self.writer.add_image(
+                    f"arena_{step}/player_{player}_result_{game_result}",
+                    frame,
+                    i,
+                    dataformats="CHW",
+                )
+            # Save the video
+            video_fp = video_dir / f"player_{player}.mp4"
+            imageio.mimsave(video_fp, frames, fps=1)
 
     def _build_hparams(self, hparams: MCTSHparams):
         """Build hyperparameters."""
