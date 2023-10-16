@@ -83,6 +83,7 @@ class Arena:
         one_won = 0
         two_won = 0
         draws = 0
+        items = []
 
         with tqdm(range(num), desc="Arena.playGames (1)") as pbar:
             for _ in range(num):
@@ -95,6 +96,10 @@ class Arena:
                     draws += 1
                 pbar.update()
                 pbar.set_postfix(oneWon=one_won, twoWon=two_won, draws=draws)
+
+        if self.capture_video:
+            game_result, frames = self.play_game(verbose=verbose, capture_video=True)
+            items.append({"frames": frames, "result": game_result, "player": 1})
 
         self.player1, self.player2 = self.player2, self.player1
 
@@ -110,8 +115,8 @@ class Arena:
                 pbar.update()
                 pbar.set_postfix(oneWon=one_won, twoWon=two_won, draws=draws)
 
-        frames = []
         if self.capture_video:
             game_result, frames = self.play_game(verbose=verbose, capture_video=True)
+            items.append({"frames": frames, "result": game_result, "player": 2})
 
-        return one_won, two_won, draws, frames
+        return one_won, two_won, draws, items
