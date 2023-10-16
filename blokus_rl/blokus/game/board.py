@@ -117,12 +117,6 @@ class Board:
         plt.xticks(np.arange(0, self.size, 1))
         plt.grid()
 
-        # Save the current frame as an image
-        # buf = io.BytesIO()
-        # plt.savefig(buf, format='png')
-        # buf.seek(0)
-        # frame = imageio.imread(buf)
-
         # Render the image and convert it to a NumPy array
         fig.canvas.draw()
         image_data = np.frombuffer(fig.canvas.tostring_rgb(), dtype=np.uint8)
