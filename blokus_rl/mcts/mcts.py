@@ -1,16 +1,14 @@
 """Monte Carlo Tree Search implementation."""
 import copy
-import logging
 import math
 
 import numpy as np
 
 from ..blokus import BlokusGameWrapper, BlokusNNet
 from ..hparams import MCTSHparams
+from ..utils import LOG_ERROR
 
 EPS = 1e-8
-
-log = logging.getLogger(__name__)
 
 
 class MCTS:
@@ -22,9 +20,9 @@ class MCTS:
         self.game = game
         self.nnet = nnet
         self.hparams = hparams
-        self.init_store()
+        self._init_store()
 
-    def init_store(self):
+    def _init_store(self):
         self.Qsa = {}  # stores Q values for s,a (as defined in the paper)
         self.Nsa = {}  # stores #times edge s,a was visited
         self.Ns = {}  # stores #times board s was visited
@@ -43,7 +41,7 @@ class MCTS:
                    proportional to Nsa[(s,a)]**(1./temp)
         """
         for _ in range(self.hparams.num_mcts_sims):
-            self.search(copy.deepcopy(canonicalBoard))
+            self._search(copy.deepcopy(canonicalBoard))
         s = self.game.string_representation(canonicalBoard)
         counts = [
             self.Nsa[(s, a)] if (s, a) in self.Nsa else 0
@@ -61,7 +59,7 @@ class MCTS:
         probs = [x / counts_sum for x in counts]
         return probs
 
-    def search(self, board):
+    def _search(self, board):
         """
         This function performs one iteration of MCTS. It is recursively called
         till a leaf node is found. The action chosen at each node is one that
@@ -103,7 +101,7 @@ class MCTS:
 
                 # NB! All valid moves may be masked if either your NNet architecture is insufficient or you've get overfitting or something else.
                 # If you have got dozens or hundreds of these messages you should pay attention to your NNet and/or training process.
-                log.error("All valid moves were masked, doing a workaround.")
+                LOG_ERROR("All valid moves were masked, doing a workaround.")
                 self.Ps[s] = self.Ps[s] + valids
                 self.Ps[s] /= np.sum(self.Ps[s])
 
@@ -135,7 +133,7 @@ class MCTS:
         next_s, next_player = self.game.get_next_state(board, 1, a)
         next_s = self.game.get_canonical_form(next_s, next_player)
 
-        v = self.search(next_s)
+        v = self._search(next_s)
 
         if (s, a) in self.Qsa:
             self.Qsa[(s, a)] = (self.Nsa[(s, a)] * self.Qsa[(s, a)] + v) / (

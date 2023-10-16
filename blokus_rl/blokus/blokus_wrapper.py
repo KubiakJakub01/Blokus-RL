@@ -3,10 +3,10 @@ import itertools
 import json
 import multiprocessing as mp
 from functools import partial
-from pathlib import Path
 
 import cython
 
+from ..hparams import MCTSHparams
 from ..utils import LOG_INFO, LOG_WARNING
 from .game.blokus_game import BlokusGame
 from .game.board import Board
@@ -22,34 +22,39 @@ def possible_moves_func(dummy, board_size, pieces):
 
 class BlokusGameWrapper:
     """Blokus game wrapper for the MCTS algorithm.
-    
-    This class is used to wrap the Blokus game in order to be used by the MCTS algorithm."""
+
+    This class is used to wrap the Blokus game in order to be used by the MCTS algorithm.
+    """
 
     rewards = {"won": 1, "tie-won": 0.1, "default": 0, "invalid": -100, "lost": -1}
 
-    def __init__(self, board_size: int, number_of_players: int, states_dir: Path):
+    def __init__(self, hparams: MCTSHparams):
         """Initializes the Blokus game wrapper.
 
         Args:
-            board_size: An integer representing the size of the board.
-            number_of_players: An integer representing the number of players.
-            states_fp: A string representing the path to the file where the states are saved."""
+            hparams: Hyperparameters for the MCTS algorithm
+        """
         if not cython.compiled:
-            print(
+            LOG_WARNING(
                 "You should run 'python setup.py build_ext --inplace' to get a 3x speedup"
             )
-        self.states_dir = states_dir
-        self.states_dir.mkdir(parents=True, exist_ok=True)
-        self.states_filename = f"board_{board_size}_players_{number_of_players}.json"
-        self.states_fp = self.states_dir / self.states_filename
+        self.hparams = hparams
+        self.board_size = self.hparams.board_size
+        self.number_of_players = self.hparams.number_of_players
+        self.hparams.states_dir.mkdir(parents=True, exist_ok=True)
         self.all_possible_indexes_to_moves = None
         self.starter_won = 0
         self.last_won = 0
         self.games_played = 0
-        self.BOARD_SIZE = board_size
-        self.NUMBER_OF_PLAYERS = number_of_players
         self.all_shapes = get_all_shapes()
         self._set_all_possible_moves()
+
+    @property
+    def states_fp(self):
+        return (
+            self.hparams.states_dir
+            / f"board_{self.board_size}_players_{self.number_of_players}.json"
+        )
 
     def get_init_board(self) -> tuple[BlokusGame, int]:
         """
@@ -57,9 +62,9 @@ class BlokusGameWrapper:
             blokus_game: a BlokusGame object
             player: the player who plays next
         """
-        board = Board(self.BOARD_SIZE)
+        board = Board(self.board_size)
         blokus_game = BlokusGame(board, self.all_shapes)
-        for i in range(1, self.NUMBER_OF_PLAYERS + 1):
+        for i in range(1, self.number_of_players + 1):
             blokus_game.add_player(
                 AiPlayer(
                     i, f"Player_{i}", self.all_possible_indexes_to_moves, blokus_game
@@ -72,7 +77,7 @@ class BlokusGameWrapper:
         Returns:
             (x,y): a tuple of board dimensions
         """
-        return (self.BOARD_SIZE, self.BOARD_SIZE)
+        return (self.board_size, self.board_size)
 
     def get_action_size(self) -> int:
         """
@@ -85,7 +90,7 @@ class BlokusGameWrapper:
         self, blokus_game: BlokusGame, player: int, action: int
     ) -> tuple[BlokusGame, int]:
         """
-        Input:
+        Args:
             blokus_game: blokus game object
             player: current player index
             action: action taken by current player
@@ -95,8 +100,10 @@ class BlokusGameWrapper:
             player who plays in the next turn (should be -player)
         """
         if action == -1:
-            print(
-                f"Player {blokus_game.next_player().name} invalid move but have {blokus_game.next_player().remains_move}"
+            LOG_WARNING(
+                "Player %s invalid move but have %s moves left",
+                {blokus_game.next_player().name},
+                len(blokus_game.next_player().possible_move_indexes()),
             )
             blokus_game.move_to_next_player()
             return blokus_game, blokus_game.next_player().index
@@ -107,9 +114,8 @@ class BlokusGameWrapper:
 
     def get_valid_moves(self, blokus_game: BlokusGame) -> list[int]:
         """
-        Input:
+        Args:
             blokus_game: blokus game object
-            player: current player index
 
         Returns:
             mask: a binary vector of length self.get_action_size(), 1 for
@@ -122,11 +128,14 @@ class BlokusGameWrapper:
             mask[index] = 1
         return mask
 
-    def get_game_ended(self, blokus_game: BlokusGame, player: int | None = None, verbose=False):
+    def get_game_ended(
+        self, blokus_game: BlokusGame, player: int | None = None, verbose=False
+    ):
         """
-        Input:
+        Args:
             blokus_game: blokus game object
             player: current player index
+            verbose: whether to print the winner
 
         Returns:
             r: 0 if game has not ended. 1 if player won, -1 if player lost,
@@ -149,13 +158,13 @@ class BlokusGameWrapper:
             reward = self.rewards["default"]
 
         if verbose:
-            print(f"Player {player} winners: {winners} reward: {reward}")
+            LOG_INFO(f"Player {player} winners: {winners} reward: {reward}")
 
         return reward
 
     def get_canonical_form(self, blokus_game: BlokusGame, player: int) -> BlokusGame:
         """
-        Input:
+        Args:
             blokus_game: blokus game object
             player: current player index
 
@@ -178,7 +187,7 @@ class BlokusGameWrapper:
         self, blokus_game: BlokusGame, pi: list[int]
     ) -> list[tuple[BlokusGame, list[int]]]:
         """
-        Input:
+        Args:
             blokus_game: blokus game object
             pi: policy vector of size self.get_action_size()
 
@@ -191,42 +200,45 @@ class BlokusGameWrapper:
 
     def string_representation(self, blokus_game: BlokusGame) -> str:
         """
-        Input:
+        Args:
             blokus_game: blokus game object
 
         Returns:
-            boardString: a quick conversion of board to a string format.
+            board_string: a quick conversion of board to a string format.
                          Required by MCTS for hashing.
         """
         return str(blokus_game.canonical_board)
 
     def sample_move(self, blokus_game: BlokusGame):
         """
-        Input:
+        Get a random move.
+
+        Args:
             blokus_game: blokus game object
 
         Returns:
             move: a random move
         """
         return blokus_game.next_player().sample_move_idx()
-    
-    def display(self, blokus_game: BlokusGame):
+
+    def display(self, blokus_game: BlokusGame) -> None:
         """
-        Input:
+        Display the current board.
+
+        Args:
             blokus_game: blokus game object
 
         Returns:
             None
         """
-        return print(blokus_game.board.tensor.numpy())
+        print(blokus_game.board.tensor.numpy())
 
     def render(self, blokus_game: BlokusGame):
         """
-        Input:
-            blokus_game: blokus game object
+        Render the current board.
 
-        Returns:
-            None
+        Args:
+            blokus_game: blokus game object
         """
         return blokus_game.board.fancy_board()
 
@@ -241,15 +253,15 @@ class BlokusGameWrapper:
                 ]
         else:
             LOG_WARNING("Building all possible states, this may take some time")
-            board = Board(self.BOARD_SIZE)
-            blokus_game = BlokusGame(board, self.all_shapes, self.NUMBER_OF_PLAYERS)
+            board = Board(self.board_size)
+            blokus_game = BlokusGame(board, self.all_shapes, self.number_of_players)
             dummy = Player(1, "", self.all_shapes, blokus_game)
 
             # self.all_possible_indexes_to_moves = possible_moves_func(dummy, self.BOARD_SIZE, self.all_shapes)
             number_of_cores_to_use = mp.cpu_count() // 2
             with mp.Pool(number_of_cores_to_use) as pool:
                 self.all_possible_indexes_to_moves = pool.map(
-                    partial(possible_moves_func, dummy, self.BOARD_SIZE),
+                    partial(possible_moves_func, dummy, self.board_size),
                     [[p] for p in self.all_shapes],
                 )
             self.all_possible_indexes_to_moves = list(

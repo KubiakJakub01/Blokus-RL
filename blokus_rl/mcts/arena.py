@@ -1,10 +1,9 @@
-import logging
+"""Module containing the Arena class for playing games between two agents."""
 
 from tqdm import tqdm
 
 from ..blokus.blokus_wrapper import BlokusGameWrapper
-
-log = logging.getLogger(__name__)
+from ..utils import LOG_INFO, LOG_WARNING
 
 
 class Arena:
@@ -49,20 +48,19 @@ class Arena:
             )
 
             if valids[action] == 0:
-                log.error(f"Action {action} is not valid!")
-                log.debug(f"valids = {valids}")
+                LOG_WARNING(f"Action {action} is not valid!")
+                LOG_INFO(f"valids = {valids}")
                 assert valids[action] > 0
             board, player = self.game.get_next_state(board, player, action)
             if verbose:
-                print("Turn ", str(it), "Player ", str(player))
+                LOG_INFO("Turn ", str(it), "Player ", str(player))
                 self.game.display(board)
             if capture_video:
                 frames.append(self.game.render(board))
         if verbose:
-            print(
-                "Game over: Turn ",
+            LOG_INFO(
+                "Game over: Turn %s Result %s",
                 str(it),
-                "Result ",
                 str(self.game.get_game_ended(board, 1, verbose=verbose)),
             )
             self.game.display(board)
