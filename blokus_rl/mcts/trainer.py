@@ -230,7 +230,7 @@ class MCTSTrainer:
         LOG_INFO("Loading train_examples from file %s", str(examples_fp))
         with open(examples_fp, "rb") as f:
             self.train_examples_history = Unpickler(f).load()
-        LOG_INFO("Loading done!")
+        LOG_INFO("Loaded %d train_examples", len(self.train_examples_history))
 
         # examples based on the model were already collected (loaded)
         self.skip_first_self_play = True
