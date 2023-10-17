@@ -7,8 +7,6 @@ import torch
 from ..players.player import Player
 from ..shapes.shape import Shape
 
-plt.switch_backend('agg')
-
 class Board:
     """
     Creates a board that has n rows and
@@ -18,7 +16,6 @@ class Board:
     """
 
     def __init__(self, size):
-        plt.ion()
         self.size = size
         self.tensor = torch.zeros((size, size), dtype=torch.int32)
 
@@ -77,17 +74,18 @@ class Board:
             for x, y in move.points
         )
 
-    def print_board(self, mode="human"):
-        if mode == "human":
-            self.fancy_board()
+    def display(self, mode="tensor"):
+        if mode == "fancy":
+            board_data = self.fancy_board()
+            plt.imshow(board_data)
+            plt.show()
         elif mode == "minimal":
             self.print_board_min()
         elif mode == "tensor":
-            self.print_tensor()
+            self.print_board()
 
-    def print_tensor(self):
-        print(chr(27) + "[2J")
-        print(self.tensor.permute())
+    def print_board(self):
+        print(self.tensor.numpy())
 
     def print_board_min(self):
         print(chr(27) + "[2J")

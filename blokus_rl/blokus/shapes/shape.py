@@ -85,3 +85,6 @@ class Shape:
 
     def __str__(self):
         return "\n".join([f"Id: {self.label}", f"Points: {sorted(self.points)}"])
+
+    def __repr__(self) -> str:
+        return " ".join([f"Shape: {self.label}", f"Points: {sorted(self.points)}"])

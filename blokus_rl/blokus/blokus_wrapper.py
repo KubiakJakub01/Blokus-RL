@@ -3,8 +3,10 @@ import itertools
 import json
 import multiprocessing as mp
 from functools import partial
+from typing import Literal
 
 import cython
+import matplotlib.pyplot as plt
 
 from ..hparams import MCTSHparams
 from ..utils import LOG_INFO, LOG_WARNING
@@ -221,7 +223,9 @@ class BlokusGameWrapper:
         """
         return blokus_game.next_player().sample_move_idx()
 
-    def display(self, blokus_game: BlokusGame) -> None:
+    def display(
+        self, blokus_game: BlokusGame, mode: str = "tensor"
+    ) -> None:
         """
         Display the current board.
 
@@ -231,7 +235,7 @@ class BlokusGameWrapper:
         Returns:
             None
         """
-        print(blokus_game.board.tensor.numpy())
+        blokus_game.board.display(mode)
 
     def render(self, blokus_game: BlokusGame):
         """
