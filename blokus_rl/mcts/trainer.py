@@ -42,15 +42,14 @@ class MCTSTrainer:
         # Agent and opponent neural nets with monte carlo tree search
         self.nnet = BlokusNNetWrapper(self.game, self.hparams, self.device)
         self.pnet = BlokusNNetWrapper(self.game, self.hparams, self.device)
+        # Can be overriden in load_checkpoint()
+        self.train_examples_history = []
         self.interation = 0
         if self.hparams.load_checkpoint_step is not None:
             LOG_INFO("Starting from checkpoint %d", self.hparams.load_checkpoint_step)
             self._load_checkpoint(self.hparams.load_checkpoint_step)
-            self.interation = self.hparams.load_checkpoint_step
         self.mcts = MCTS(self.game, self.nnet, self.hparams)
 
-        # history of examples from num_iters_for_train_examples_history latest iterations
-        self.train_examples_history = []
         self.skip_first_self_play = False  # can be overriden in load_train_examples()
         self._model_version = 0
         self._running_vals = self._reset_running_vals()
@@ -234,6 +233,7 @@ class MCTSTrainer:
 
         # examples based on the model were already collected (loaded)
         self.skip_first_self_play = True
+        self.interation = self.hparams.load_checkpoint_step
 
     def _log_to_tensorboard(self, step: int):
         """Log the running values to tensorboard."""
