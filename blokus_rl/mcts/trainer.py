@@ -74,29 +74,28 @@ class MCTSTrainer:
         mcts = MCTS(self.game, self.nnet, self.hparams)
         train_examples = []
         board, curPlayer = self.game.get_init_board()
-        self.curPlayer = curPlayer
         episodeStep = 0
 
         while True:
             episodeStep += 1
-            canonicalBoard = self.game.get_canonical_form(board, self.curPlayer)
+            canonicalBoard = self.game.get_canonical_form(board, curPlayer)
             temp = int(episodeStep < self.hparams.temp_threshold)
 
             pi = mcts.get_action_prob(copy.deepcopy(canonicalBoard), temp=temp)
             sym = self.game.get_symmetries(canonicalBoard, pi)
             for b, p in sym:
-                train_examples.append([b, self.curPlayer, p, None])
+                train_examples.append([b, curPlayer, p, None])
 
             action = np.random.choice(len(pi), p=pi)
-            board, self.curPlayer = self.game.get_next_state(
-                board, self.curPlayer, action
+            board, curPlayer = self.game.get_next_state(
+                board, curPlayer, action
             )
 
-            r = self.game.get_game_ended(board, self.curPlayer)
+            r = self.game.get_game_ended(board, curPlayer)
 
             if r != 0:
                 return [
-                    (x[0], x[2], r * ((-1) ** (x[1] != self.curPlayer)))
+                    (x[0], x[2], r * ((-1) ** (x[1] != curPlayer)))
                     for x in train_examples
                 ]
 
@@ -120,9 +119,6 @@ class MCTSTrainer:
                 )
 
                 for _ in tqdm(range(self.hparams.num_eps), desc="Self Play"):
-                    self.mcts = MCTS(
-                        self.game, self.nnet, self.hparams
-                    )  # reset search tree
                     iteration_train_examples += self.execute_episode()
 
                 # save the iteration examples to the history
