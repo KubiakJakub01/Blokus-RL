@@ -28,6 +28,11 @@ class HParams:
     experiment_name: str = field(
         default="blokus", metadata={"help": "Name of the experiment"}
     )
+    num_workers: int = field(
+        default=-1, metadata={
+            "help": "Number of parallel workers. Set to -1 to use all available CPUs"
+        }
+    )
     cuda: bool = field(default=True, metadata={"help": "Whether to use CUDA"})
     seed: int = field(default=42, metadata={"help": "Seed for the experiment"})
     wanda: bool = field(default=False, metadata={"help": "Whether to use wandb"})
