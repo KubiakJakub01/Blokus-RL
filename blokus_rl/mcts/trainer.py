@@ -48,7 +48,6 @@ class MCTSTrainer:
         if self.hparams.load_checkpoint_step is not None:
             LOG_INFO("Starting from checkpoint %d", self.hparams.load_checkpoint_step)
             self._load_checkpoint(self.hparams.load_checkpoint_step)
-        self.mcts = MCTS(self.game, self.nnet, self.hparams)
 
         self.skip_first_self_play = False  # can be overriden in load_train_examples()
         self._model_version = 0
@@ -72,7 +71,7 @@ class MCTSTrainer:
                            pi is the MCTS informed policy vector, v is +1 if
                            the player eventually won the game, else -1.
         """
-
+        mcts = MCTS(self.game, self.nnet, self.hparams)
         train_examples = []
         board, curPlayer = self.game.get_init_board()
         self.curPlayer = curPlayer
@@ -83,7 +82,7 @@ class MCTSTrainer:
             canonicalBoard = self.game.get_canonical_form(board, self.curPlayer)
             temp = int(episodeStep < self.hparams.temp_threshold)
 
-            pi = self.mcts.get_action_prob(copy.deepcopy(canonicalBoard), temp=temp)
+            pi = mcts.get_action_prob(copy.deepcopy(canonicalBoard), temp=temp)
             sym = self.game.get_symmetries(canonicalBoard, pi)
             for b, p in sym:
                 train_examples.append([b, self.curPlayer, p, None])
