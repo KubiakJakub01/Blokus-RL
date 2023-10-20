@@ -1,3 +1,4 @@
+# pylint: skip-file
 import matplotlib.pyplot as plt
 
 from ...hparams import MCTSHparams

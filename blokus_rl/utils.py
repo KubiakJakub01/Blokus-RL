@@ -72,7 +72,7 @@ def make_envs(idx, hparams: HParams):
     return _make_env
 
 
-class AverageMeter(object):
+class AverageMeter:
     """From https://github.com/pytorch/examples/blob/master/imagenet/main.py"""
 
     def __init__(self):

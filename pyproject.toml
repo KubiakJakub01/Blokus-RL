@@ -34,8 +34,13 @@ disable = [
     "too-many-arguments",
     "too-many-instance-attributes",
     "cell-var-from-loop",
-    "invalid-name"
+    "invalid-name",
+    "import-outside-toplevel",
+    "c-extension-no-member",
+    "too-many-locals",
+    "too-few-public-methods"
 ]
+generated-members=["numpy.*","torch.*"]
 
 [tool.setuptools]
 py-modules = []

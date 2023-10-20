@@ -27,7 +27,7 @@ def get_params():
     return parser.parse_args()
 
 
-def train(algo: str, hparams: HParams):
+def train_agent(algo: str, hparams: HParams):
     """Train a model."""
     if algo == "ppo":
         trainer = PPOTrainer(hparams)
@@ -35,7 +35,8 @@ def train(algo: str, hparams: HParams):
         trainer = MCTSTrainer(hparams)
     trainer.train()
 
-if __name__ == "__main__":
+
+def main():
     # Parse command line arguments
     args = get_params()
 
@@ -43,7 +44,6 @@ if __name__ == "__main__":
     hparams = load_hparams(args.hparams_fp, args.algorithm)
 
     LOG_INFO("Training model with %s algorithm", args.algorithm)
-    # LOG_INFO("Run name: %s", hparams.run_name)
     # Set up wandb
     if hparams.wanda:
         import wandb
@@ -63,4 +63,7 @@ if __name__ == "__main__":
     set_environ(hparams)
     seed(hparams.seed)
 
-    train(args.algorithm, hparams)
+    train_agent(args.algorithm, hparams)
+
+if __name__ == "__main__":
+    main()

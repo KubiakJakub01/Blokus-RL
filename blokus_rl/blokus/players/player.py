@@ -5,7 +5,7 @@ import random
 from collections import defaultdict
 
 from ..game.blokus_game import BlokusGame
-from ..shapes.shape import Shape
+from ..shapes import Shape
 
 
 class Player:

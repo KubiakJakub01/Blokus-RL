@@ -4,8 +4,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 import torch
 
-from ..players.player import Player
-from ..shapes.shape import Shape
+from ..players import Player
+from ..shapes import Shape
 
 class Board:
     """

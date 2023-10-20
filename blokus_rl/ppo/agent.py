@@ -1,7 +1,7 @@
 """Deep neural network model for PPO algorithm."""
 import numpy as np
 import torch
-import torch.nn as nn
+from torch import nn
 from torch.distributions.categorical import Categorical
 
 from ..hparams import HParams
@@ -26,7 +26,7 @@ class FilterLegalMoves(nn.Module):
     """Filter out illegal moves."""
 
     def __init__(self):
-        super(FilterLegalMoves, self).__init__()
+        super().__init__()
 
     def forward(self, x, possible_moves):
         actions_tensor = torch.zeros(x.shape).to(x.device)
@@ -67,7 +67,7 @@ class ConvBlock(nn.Module):
             
         Returns:
             Initialized convolutional block."""
-        super(ConvBlock, self).__init__()
+        super().__init__()
         assert n_layers >= 1, "Number of layers must be at least 1"
         layers = []
         layers.append(
@@ -106,7 +106,7 @@ class CnnAgent(nn.Module):
         Args:
             envs: Environment object.
             hparams: Hyperparameters."""
-        super(CnnAgent, self).__init__()
+        super().__init__()
         self.board_dim = np.array(envs.single_observation_space.shape).prod()
         self.output_dim = envs.single_action_space.n
         self.d_model = hparams.d_model
@@ -129,6 +129,12 @@ class CnnAgent(nn.Module):
         self.critic = MLP(
             self.d_model * self.board_dim, self.d_model, 1, hparams.dropout, std=1.0
         )
+
+    def forward(self, x, possible_moves=None):
+        x = self.conv_block(x)
+        x = x.view(x.size(0), -1)
+        x = self.actor(x, possible_moves)
+        return x
 
     def get_value(self, x):
         """Get the value of a state."""
@@ -160,7 +166,7 @@ class MLP(nn.Module):
             
         Returns:
             Initialized MLP."""
-        super(MLP, self).__init__()
+        super().__init__()
         self.net = nn.Sequential(
             layer_init(nn.Linear(input_dim, hidden_dim)),
             nn.Dropout(dropout),
@@ -192,7 +198,7 @@ class Agent(nn.Module):
             envs: Environment object.
             hparams: Hyperparameters.
         """
-        super(Agent, self).__init__()
+        super().__init__()
         self.input_dim = np.array(envs.single_observation_space.shape).prod()
         self.output_dim = envs.single_action_space.n
         self.d_model = hparams.d_model
@@ -201,6 +207,11 @@ class Agent(nn.Module):
             self.input_dim, self.d_model, self.output_dim, hparams.dropout, std=0.01
         )
         self.critic = MLP(self.input_dim, self.d_model, 1, hparams.dropout, std=1.0)
+
+    def forward(self, x, possible_moves=None):
+        x = self._preprocess(x)
+        x = self.actor(x, possible_moves)
+        return x
 
     def get_value(self, x):
         """Get the value of a state."""

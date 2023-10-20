@@ -223,9 +223,6 @@ class MCTSHparams(HParams):
         default=20, metadata={"help": "Number of iterations for train examples history"}
     )
 
-    def __post_init__(self):
-        super().__post_init__()
-
 
 def get_hparams(algorithm: str = "ppo"):
     """Get hyperparameters for a given algorithm."""

@@ -7,12 +7,11 @@ from typing import Any
 import gymnasium as gym
 import numpy as np
 import torch
-import torch.nn as nn
-import torch.optim as optim
+from torch import nn, optim
 from torch.utils.tensorboard import SummaryWriter
 
 from ..hparams import PPOHparams
-from ..utils import LOG_DEBUG, LOG_INFO, LOG_WARNING, make_envs
+from ..utils import LOG_INFO, LOG_WARNING, make_envs
 from .agent import get_agent
 from .memory import Memory
 
@@ -45,6 +44,7 @@ class PPOTrainer:
         self.memory = Memory(self.hparams, self.envs, self.device)
         self.running_vals = self._reset_running_vals()
 
+        self.global_step = 0
         self._total_episodes = 0
         self._total_episodes_reward = 0
 
@@ -54,7 +54,6 @@ class PPOTrainer:
         """Train the agent."""
 
         # Set the initial values
-        self.global_step = 0
         start_time = time.time()
         next_obs, _ = self.envs.reset()
         next_obs = torch.Tensor(next_obs).to(self.device)
@@ -176,7 +175,6 @@ class PPOTrainer:
 
         Returns:
             Generalized advantage estimation."""
-        LOG_DEBUG(f"step: %d rewards: %s", self.global_step, self.memory.rewards)
         advantages = torch.zeros_like(self.memory.rewards).to(self.device)
         lastgaelam = 0
         for t in reversed(range(self.hparams.num_steps)):

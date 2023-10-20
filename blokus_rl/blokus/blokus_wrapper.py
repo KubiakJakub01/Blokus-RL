@@ -3,18 +3,14 @@ import itertools
 import json
 import multiprocessing as mp
 from functools import partial
-from typing import Literal
 
 import cython
-import matplotlib.pyplot as plt
 
 from ..hparams import MCTSHparams
 from ..utils import LOG_INFO, LOG_WARNING
-from .game.blokus_game import BlokusGame
-from .game.board import Board
-from .players.player import AiPlayer, Player
-from .shapes.shape import Shape
-from .shapes.shapes import get_all_shapes
+from .game import BlokusGame, Board
+from .players import AiPlayer, Player
+from .shapes import Shape, get_all_shapes
 
 
 def possible_moves_func(dummy, board_size, pieces):
@@ -88,7 +84,7 @@ class BlokusGameWrapper:
         """
         return len(self.all_possible_indexes_to_moves)
 
-    def get_next_state(
+    def get_next_state(  # pylint: disable=unused-argument
         self, blokus_game: BlokusGame, player: int, action: int
     ) -> tuple[BlokusGame, int]:
         """
@@ -251,7 +247,7 @@ class BlokusGameWrapper:
 
         if self.states_fp.exists():
             LOG_INFO("Loading all possible states from %s", str(self.states_fp))
-            with open(self.states_fp) as json_file:
+            with open(self.states_fp, "r", encoding="utf-8") as json_file:
                 self.all_possible_indexes_to_moves = [
                     Shape.from_json(move) for move in json.load(json_file)
                 ]
@@ -276,6 +272,6 @@ class BlokusGameWrapper:
                 for idx, move in enumerate(self.all_possible_indexes_to_moves)
             ]
 
-            with open(self.states_fp, "w") as json_file:
+            with open(self.states_fp, "w", encoding="utf-8") as json_file:
                 json.dump(data, json_file)
             LOG_INFO("%s has been saved", str(self.states_fp))
