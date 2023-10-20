@@ -25,6 +25,18 @@ classifiers = [
     "Topic :: Games/Entertainment :: Board Games"
 ]
 
+[tool.pylint]
+max-line-length = 120
+disable = [
+    "missing-module-docstring",
+    "missing-class-docstring",
+    "missing-function-docstring",
+    "too-many-arguments",
+    "too-many-instance-attributes",
+    "cell-var-from-loop",
+    "invalid-name"
+]
+
 [tool.setuptools]
 py-modules = []
 

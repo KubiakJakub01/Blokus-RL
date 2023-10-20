@@ -2,7 +2,7 @@
 
 from tqdm import tqdm
 
-from ..blokus.blokus_wrapper import BlokusGameWrapper
+from ..blokus import BlokusGameWrapper
 from ..utils import LOG_INFO, LOG_WARNING
 
 

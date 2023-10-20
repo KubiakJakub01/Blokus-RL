@@ -23,15 +23,15 @@ class MCTS:
         self._init_store()
 
     def _init_store(self):
-        self.Qsa = {}  # stores Q values for s,a (as defined in the paper)
-        self.Nsa = {}  # stores #times edge s,a was visited
-        self.Ns = {}  # stores #times board s was visited
-        self.Ps = {}  # stores initial policy (returned by neural net)
+        self.Q_sa = {}  # stores Q values for s,a (as defined in the paper)
+        self.N_sa = {}  # stores #times edge s,a was visited
+        self.N_s = {}  # stores #times board s was visited
+        self.P_s = {}  # stores initial policy (returned by neural net)
 
-        self.Es = {}  # stores game.getGameEnded ended for board s
-        self.Vs = {}  # stores game.getValidMoves for board s
+        self.E_s = {}  # stores game.getGameEnded ended for board s
+        self.V_s = {}  # stores game.getValidMoves for board s
 
-    def get_action_prob(self, canonicalBoard, temp=1):
+    def get_action_prob(self, canonical_board, temp=1):
         """
         This function performs numMCTSSims simulations of MCTS starting from
         canonicalBoard.
@@ -41,17 +41,17 @@ class MCTS:
                    proportional to Nsa[(s,a)]**(1./temp)
         """
         for _ in range(self.hparams.num_mcts_sims):
-            self._search(copy.deepcopy(canonicalBoard))
-        s = self.game.string_representation(canonicalBoard)
+            self.search(copy.deepcopy(canonical_board))
+        s = self.game.string_representation(canonical_board)
         counts = [
-            self.Nsa[(s, a)] if (s, a) in self.Nsa else 0
+            self.N_sa[(s, a)] if (s, a) in self.N_sa else 0
             for a in range(self.game.get_action_size())
         ]
         if temp == 0:
-            bestAs = np.array(np.argwhere(counts == np.max(counts))).flatten()
-            bestA = np.random.choice(bestAs)
+            best_as = np.array(np.argwhere(counts == np.max(counts))).flatten()
+            best_a = np.random.choice(best_as)
             probs = [0] * len(counts)
-            probs[bestA] = 1
+            probs[best_a] = 1
             return probs
 
         counts = [x ** (1.0 / temp) for x in counts]
@@ -59,7 +59,7 @@ class MCTS:
         probs = [x / counts_sum for x in counts]
         return probs
 
-    def _search(self, board):
+    def search(self, board):
         """
         This function performs one iteration of MCTS. It is recursively called
         till a leaf node is found. The action chosen at each node is one that
@@ -81,48 +81,45 @@ class MCTS:
 
         s = self.game.string_representation(board)
 
-        if s not in self.Es:
-            self.Es[s] = self.game.get_game_ended(board, 1)
-        if self.Es[s] != 0:
+        if s not in self.E_s:
+            self.E_s[s] = self.game.get_game_ended(board, 1)
+        if self.E_s[s] != 0:
             # terminal node
-            return -self.Es[s]
+            return -self.E_s[s]
 
         # print(f's not in self.Ps: {s not in self.Ps}')
-        if s not in self.Ps:
+        if s not in self.P_s:
             # leaf node
-            self.Ps[s], v = self.nnet.predict(board.canonical_board.copy())
+            self.P_s[s], v = self.nnet.predict(board.canonical_board.copy())
             valids = self.game.get_valid_moves(board)
-            self.Ps[s] = self.Ps[s] * valids  # masking invalid moves
-            sum_Ps_s = np.sum(self.Ps[s])
+            self.P_s[s] = self.P_s[s] * valids  # masking invalid moves
+            sum_Ps_s = np.sum(self.P_s[s])
             if sum_Ps_s > 0:
-                self.Ps[s] /= sum_Ps_s  # renormalize
+                self.P_s[s] /= sum_Ps_s  # renormalize
             else:
                 # if all valid moves were masked make all valid moves equally probable
-
-                # NB! All valid moves may be masked if either your NNet architecture is insufficient or you've get overfitting or something else.
-                # If you have got dozens or hundreds of these messages you should pay attention to your NNet and/or training process.
                 LOG_ERROR("All valid moves were masked, doing a workaround.")
-                self.Ps[s] = self.Ps[s] + valids
-                self.Ps[s] /= np.sum(self.Ps[s])
+                self.P_s[s] = self.P_s[s] + valids
+                self.P_s[s] /= np.sum(self.P_s[s])
 
-            self.Vs[s] = valids
-            self.Ns[s] = 0
+            self.V_s[s] = valids
+            self.N_s[s] = 0
             return -v
 
-        valids = self.Vs[s]
+        valids = self.V_s[s]
         cur_best = -float("inf")
         best_act = -1
 
         # pick the action with the highest upper confidence bound
         for a in range(self.game.get_action_size()):
             if valids[a]:
-                if (s, a) in self.Qsa:
-                    u = self.Qsa[(s, a)] + self.hparams.cpuct * self.Ps[s][
+                if (s, a) in self.Q_sa:
+                    u = self.Q_sa[(s, a)] + self.hparams.cpuct * self.P_s[s][
                         a
-                    ] * math.sqrt(self.Ns[s]) / (1 + self.Nsa[(s, a)])
+                    ] * math.sqrt(self.N_s[s]) / (1 + self.N_sa[(s, a)])
                 else:
                     u = (
-                        self.hparams.cpuct * self.Ps[s][a] * math.sqrt(self.Ns[s] + EPS)
+                        self.hparams.cpuct * self.P_s[s][a] * math.sqrt(self.N_s[s] + EPS)
                     )  # Q = 0 ?
 
                 if u > cur_best:
@@ -133,17 +130,17 @@ class MCTS:
         next_s, next_player = self.game.get_next_state(board, 1, a)
         next_s = self.game.get_canonical_form(next_s, next_player)
 
-        v = self._search(next_s)
+        v = self.search(next_s)
 
-        if (s, a) in self.Qsa:
-            self.Qsa[(s, a)] = (self.Nsa[(s, a)] * self.Qsa[(s, a)] + v) / (
-                self.Nsa[(s, a)] + 1
+        if (s, a) in self.Q_sa:
+            self.Q_sa[(s, a)] = (self.N_sa[(s, a)] * self.Q_sa[(s, a)] + v) / (
+                self.N_sa[(s, a)] + 1
             )
-            self.Nsa[(s, a)] += 1
+            self.N_sa[(s, a)] += 1
 
         else:
-            self.Qsa[(s, a)] = v
-            self.Nsa[(s, a)] = 1
+            self.Q_sa[(s, a)] = v
+            self.N_sa[(s, a)] = 1
 
-        self.Ns[s] += 1
+        self.N_s[s] += 1
         return -v

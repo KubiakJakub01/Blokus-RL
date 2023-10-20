@@ -73,29 +73,29 @@ class MCTSTrainer:
         """
         mcts = MCTS(self.game, self.nnet, self.hparams)
         train_examples = []
-        board, curPlayer = self.game.get_init_board()
-        episodeStep = 0
+        board, cur_player = self.game.get_init_board()
+        episode_step = 0
 
         while True:
-            episodeStep += 1
-            canonicalBoard = self.game.get_canonical_form(board, curPlayer)
-            temp = int(episodeStep < self.hparams.temp_threshold)
+            episode_step += 1
+            canonical_board = self.game.get_canonical_form(board, cur_player)
+            temp = int(episode_step < self.hparams.temp_threshold)
 
-            pi = mcts.get_action_prob(copy.deepcopy(canonicalBoard), temp=temp)
-            sym = self.game.get_symmetries(canonicalBoard, pi)
+            pi = mcts.get_action_prob(copy.deepcopy(canonical_board), temp=temp)
+            sym = self.game.get_symmetries(canonical_board, pi)
             for b, p in sym:
-                train_examples.append([b, curPlayer, p, None])
+                train_examples.append([b, cur_player, p, None])
 
             action = np.random.choice(len(pi), p=pi)
-            board, curPlayer = self.game.get_next_state(
-                board, curPlayer, action
+            board, cur_player = self.game.get_next_state(
+                board, cur_player, action
             )
 
-            r = self.game.get_game_ended(board, curPlayer)
+            r = self.game.get_game_ended(board, cur_player)
 
             if r != 0:
                 return [
-                    (x[0], x[2], r * ((-1) ** (x[1] != curPlayer)))
+                    (x[0], x[2], r * ((-1) ** (x[1] != cur_player)))
                     for x in train_examples
                 ]
 
@@ -176,7 +176,7 @@ class MCTSTrainer:
                 prefix="arena",
             )
 
-            LOG_INFO("NEW/PREV WINS : %d / %d ; DRAWS : %d" % (nwins, pwins, draws))
+            LOG_INFO("NEW/PREV WINS : %d / %d ; DRAWS : %d", (nwins, pwins, draws))
             if (
                 pwins + nwins == 0
                 or float(nwins) / (pwins + nwins) < self.hparams.update_threshold
