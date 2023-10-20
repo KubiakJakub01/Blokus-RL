@@ -12,7 +12,8 @@ dependencies = [
     "gymnasium==0.29.1",
     "moviepy==1.0.3",
     "coloredlogs==15.0.1",
-    "numpy==1.25.2"
+    "numpy==1.25.2",
+    "pylint==3.0.1"
 ]
 classifiers = [
     "Programming Language :: Python :: 3.10",
