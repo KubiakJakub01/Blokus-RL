@@ -87,9 +87,7 @@ class MCTSTrainer:
                 train_examples.append([b, cur_player, p, None])
 
             action = np.random.choice(len(pi), p=pi)
-            board, cur_player = self.game.get_next_state(
-                board, cur_player, action
-            )
+            board, cur_player = self.game.get_next_state(board, cur_player, action)
 
             r = self.game.get_game_ended(board, cur_player)
 

@@ -119,7 +119,9 @@ class MCTS:
                     ] * math.sqrt(self.N_s[s]) / (1 + self.N_sa[(s, a)])
                 else:
                     u = (
-                        self.hparams.cpuct * self.P_s[s][a] * math.sqrt(self.N_s[s] + EPS)
+                        self.hparams.cpuct
+                        * self.P_s[s][a]
+                        * math.sqrt(self.N_s[s] + EPS)
                     )  # Q = 0 ?
 
                 if u > cur_best:

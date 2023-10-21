@@ -20,7 +20,7 @@ class Player:
         deterministic=False,
     ):
         """Initializes a player with an index, name, and a set of pieces.
-        
+
         Args:
             index: An integer representing the player's index. \
                 Player blocks are represented by their index in the board tensor.

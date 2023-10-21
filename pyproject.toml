@@ -8,16 +8,17 @@ authors = [
 ]
 requires-python = ">=3.10"
 dependencies = [
-    "torch==2.0.1",
-    "gymnasium==0.29.1",
-    "moviepy==1.0.3",
     "coloredlogs==15.0.1",
-    "numpy==1.25.2",
     "Cython==3.0.3",
+    "gymnasium==0.29.1",
+    "matplotlib==3.8.0",
+    "moviepy==1.0.3",
+    "numpy==1.25.2",
+    "pycodestyle==2.11.1",
+    "pylint==3.0.1",
     "PyYAML==6.0.1",
     "tensorboard==2.14.1",
-    "matplotlib==3.8.0",
-    "pylint==3.0.1"
+    "torch==2.0.1",
 ]
 classifiers = [
     "Programming Language :: Python :: 3.10",

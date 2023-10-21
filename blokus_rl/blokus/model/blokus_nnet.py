@@ -152,7 +152,9 @@ class BlokusNNetWrapper:
                     pi_losses.update(l_pi.item(), boards.size(0))
                     v_losses.update(l_v.item(), boards.size(0))
                     total_losses.update(total_loss.item(), boards.size(0))
-                    t.set_postfix(Loss_pi=pi_losses, Loss_v=v_losses, Total_loss=total_losses)
+                    t.set_postfix(
+                        Loss_pi=pi_losses, Loss_v=v_losses, Total_loss=total_losses
+                    )
 
                     # compute gradient and do SGD step
                     optimizer.zero_grad()

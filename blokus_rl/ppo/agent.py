@@ -9,12 +9,12 @@ from ..hparams import HParams
 
 def layer_init(layer: nn.Linear, std=np.sqrt(2), bias_const=0.0):
     """Initialize a linear layer with orthogonal initialization.
-    
+
     Args:
         layer: Linear layer to initialize.
         std: Standard deviation of the weights.
         bias_const: Constant to initialize the bias with.
-    
+
     Returns:
         Initialized linear layer."""
     torch.nn.init.orthogonal_(layer.weight, std)
@@ -54,7 +54,7 @@ class ConvBlock(nn.Module):
         dropout: float = 0.1,
     ):
         """Convolutional block.
-        
+
         Args:
             in_channels: Number of input channels.
             out_channels: Number of output channels.
@@ -64,7 +64,7 @@ class ConvBlock(nn.Module):
             padding: Padding.
             dropout: Dropout probability.
             std: Standard deviation of the weights.
-            
+
         Returns:
             Initialized convolutional block."""
         super().__init__()
@@ -102,7 +102,7 @@ class CnnAgent(nn.Module):
 
     def __init__(self, envs, hparams: HParams):
         """Initialize the agent.
-        
+
         Args:
             envs: Environment object.
             hparams: Hyperparameters."""
@@ -156,14 +156,14 @@ class CnnAgent(nn.Module):
 class MLP(nn.Module):
     def __init__(self, input_dim, hidden_dim, output_dim, dropout=0.1, std=0.01):
         """Multi-layer perceptron.
-        
+
         Args:
             input_dim: Dimensionality of the input.
             hidden_dim: Dimensionality of the hidden layers.
             output_dim: Dimensionality of the output.
             dropout: Dropout probability.
             std: Standard deviation of the weights.
-            
+
         Returns:
             Initialized MLP."""
         super().__init__()

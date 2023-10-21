@@ -10,13 +10,17 @@ import yaml
 @dataclass
 class HParams:
     """Common hyperparameters for training and testing."""
+
     # Experiment parameters
     checkpoint_dir: Path = field(
         default=Path("models/checkpoints"),
         metadata={"help": "Directory to save checkpoints"},
     )
     load_checkpoint_step: int | None = field(
-        default=None, metadata={"help": "Step to load the checkpoint from. If None, checkpoint is not loaded"}
+        default=None,
+        metadata={
+            "help": "Step to load the checkpoint from. If None, checkpoint is not loaded"
+        },
     )
     log_dir: Path = field(
         default=Path("models/logs"),
@@ -29,9 +33,10 @@ class HParams:
         default="blokus", metadata={"help": "Name of the experiment"}
     )
     num_workers: int = field(
-        default=-1, metadata={
+        default=-1,
+        metadata={
             "help": "Number of parallel workers. Set to -1 to use all available CPUs"
-        }
+        },
     )
     cuda: bool = field(default=True, metadata={"help": "Whether to use CUDA"})
     seed: int = field(default=42, metadata={"help": "Seed for the experiment"})
@@ -84,9 +89,11 @@ class HParams:
                 hparams_dict[key] = value
         return hparams_dict
 
+
 @dataclass
 class PPOHparams(HParams):
     """Hyperparameters for PPO."""
+
     # Environment parameters
     gym_env: str = field(
         default="blokus_gym:blokus-simple-v0", metadata={"help": "Gym environment ID"}
@@ -173,16 +180,19 @@ class PPOHparams(HParams):
         self.minibatch_size = self.batch_size // self.num_minibatches
         self.num_updates = self.total_timesteps // self.batch_size
 
+
 @dataclass
 class MCTSHparams(HParams):
     """Hyperparameters for MCTS."""
+
     # Board parameters
     board_size: int = field(default=7, metadata={"help": "Size of the board"})
     number_of_players: int = field(
         default=2, metadata={"help": "Number of players in the game"}
     )
     states_dir: Path = field(
-        default=Path("states"), metadata={"help":"Dir for blokus game states"})
+        default=Path("states"), metadata={"help": "Dir for blokus game states"}
+    )
 
     # Model parameters
     lr: float = field(default=0.001, metadata={"help": "Learning rate"})
@@ -195,12 +205,8 @@ class MCTSHparams(HParams):
     # Training parameters
     num_iters: int = field(default=1000, metadata={"help": "Number of iterations"})
     num_eps: int = field(default=100, metadata={"help": "Number of episodes"})
-    temp_threshold: int = field(
-        default=15, metadata={"help": "Temperature threshold"}
-    )
-    update_threshold: float = field(
-        default=0.6, metadata={"help": "Update threshold"}
-    )
+    temp_threshold: int = field(default=15, metadata={"help": "Temperature threshold"})
+    update_threshold: float = field(default=0.6, metadata={"help": "Update threshold"})
     max_len_of_queue: int = field(
         default=200000, metadata={"help": "Maximum length of queue"}
     )
@@ -226,10 +232,7 @@ class MCTSHparams(HParams):
 
 def get_hparams(algorithm: str = "ppo"):
     """Get hyperparameters for a given algorithm."""
-    hparams_dict = {
-        "ppo": PPOHparams,
-        "mcts": MCTSHparams
-    }
+    hparams_dict = {"ppo": PPOHparams, "mcts": MCTSHparams}
     return hparams_dict[algorithm]
 
 

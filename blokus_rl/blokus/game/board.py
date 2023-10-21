@@ -7,6 +7,7 @@ import torch
 from ..players import Player
 from ..shapes import Shape
 
+
 class Board:
     """
     Creates a board that has n rows and

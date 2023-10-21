@@ -24,7 +24,7 @@ class PPOTrainer:
 
     def __init__(self, hparams: PPOHparams):
         """Initialize the trainer.
-        
+
         Args:
             hparams: Hyperparameters for the trainer."""
         self.hparams = hparams
@@ -107,7 +107,7 @@ class PPOTrainer:
 
         hparams:
             update: Current update step.
-        
+
         Returns:
             Annealed learning rate."""
         frac = 1.0 - (update - 1.0) / self.hparams.num_updates
@@ -117,11 +117,11 @@ class PPOTrainer:
         self, next_obs: torch.Tensor, next_done: torch.Tensor
     ) -> tuple[torch.Tensor, torch.Tensor]:
         """Play the environment for a number of steps.
-        
+
         Args:
             next_obs: Next observation.
             next_done: Whether the next state is done.
-        
+
         Returns:
             Next observation and whether the next state is done."""
         for step in range(self.hparams.num_steps):
@@ -304,7 +304,7 @@ class PPOTrainer:
 
     def _update_running_vals(self, items: dict[str, Any], prefix=None):
         """Update the running values.
-        
+
         Args:
             items: Dictionary containing the values.
             prefix: Prefix for the keys."""
@@ -349,7 +349,7 @@ class PPOTrainer:
 
     def _get_valid_moves_mask(self) -> torch.Tensor | None:
         """Get the valid moves for the environment.
-        
+
         If None is returned there is no restriction on the moves."""
         if "blokus" in self.hparams.gym_env:
             return self.envs.get_attr("ai_possible_indexes")

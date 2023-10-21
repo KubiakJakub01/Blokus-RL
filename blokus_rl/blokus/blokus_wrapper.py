@@ -219,9 +219,7 @@ class BlokusGameWrapper:
         """
         return blokus_game.next_player().sample_move_idx()
 
-    def display(
-        self, blokus_game: BlokusGame, mode: str = "tensor"
-    ) -> None:
+    def display(self, blokus_game: BlokusGame, mode: str = "tensor") -> None:
         """
         Display the current board.
 
