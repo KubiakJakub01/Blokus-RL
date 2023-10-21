@@ -7,7 +7,7 @@ on:
         branches: [ main ]
 
 jobs:
-    run-pylint:
+    pylint:
         runs-on: ubuntu-latest
         steps:
             - uses: actions/checkout@v2
@@ -23,7 +23,7 @@ jobs:
             - name: Run pylint
               run: |
                   pylint --rcfile pyproject.toml blokus_rl/
-    run-pycodestyle:
+    pycodestyle:
         runs-on: ubuntu-latest
         steps:
             - uses: actions/checkout@v2
@@ -39,7 +39,7 @@ jobs:
             - name: Run pycodestyle
               run: |
                   pycodestyle --max-line-length 120 blokus_rl/
-    run-mypy:
+    mypy:
         runs-on: ubuntu-latest
         steps:
             - uses: actions/checkout@v2
