@@ -9,12 +9,12 @@ class Shape(ABC):
     with a shape.
     """
 
-    label = ""
-    points = []
-    corners = []
-    idx = -1
+    label: str = ""
+    points: list = []
+    corners: list = []
+    idx: int = -1
     rotation_matrix = np.array([(0, -1), (1, 0)])
-    ref_point = None
+    ref_point: tuple[int, int] | None = None
 
     @abstractmethod
     def set_points(self, x, y):

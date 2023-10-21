@@ -1,10 +1,12 @@
 """Deep neural network model for PPO algorithm."""
+from typing import Any
+
 import numpy as np
 import torch
 from torch import nn
 from torch.distributions.categorical import Categorical
 
-from ..hparams import HParams
+from ..hparams import PPOHparams
 
 
 def layer_init(layer: nn.Linear, std=np.sqrt(2), bias_const=0.0):
@@ -69,7 +71,7 @@ class ConvBlock(nn.Module):
             Initialized convolutional block."""
         super().__init__()
         assert n_layers >= 1, "Number of layers must be at least 1"
-        layers = []
+        layers: list[Any] = []
         layers.append(
             nn.Conv2d(
                 in_channels, out_channels, kernel_size, stride=stride, padding=padding
@@ -100,7 +102,7 @@ class ConvBlock(nn.Module):
 class CnnAgent(nn.Module):
     """Agent with a convolutional block."""
 
-    def __init__(self, envs, hparams: HParams):
+    def __init__(self, envs, hparams: PPOHparams):
         """Initialize the agent.
 
         Args:
@@ -191,7 +193,7 @@ class MLP(nn.Module):
 class Agent(nn.Module):
     """Agent network."""
 
-    def __init__(self, envs, hparams: HParams):
+    def __init__(self, envs, hparams: PPOHparams):
         """Initialize the agent.
 
         Args:

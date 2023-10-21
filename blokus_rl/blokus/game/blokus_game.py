@@ -16,6 +16,7 @@ class BlokusGame:
         self.players = []
         self.rounds = 0
         self.board = board
+        self.canonical_board = board.tensor
         self.all_pieces = all_pieces
         self.number_of_players = number_of_players
 

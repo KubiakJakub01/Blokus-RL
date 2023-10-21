@@ -230,6 +230,9 @@ class MCTSHparams(HParams):
     )
 
 
+HParamsType = HParams | PPOHparams | MCTSHparams
+
+
 def get_hparams(algorithm: str = "ppo"):
     """Get hyperparameters for a given algorithm."""
     hparams_dict = {"ppo": PPOHparams, "mcts": MCTSHparams}

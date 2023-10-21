@@ -1,14 +1,13 @@
 """Memory for PPO."""
-import gymnasium as gym
 import torch
 
-from ..hparams import HParams
+from ..hparams import PPOHparams
 
 
 class Memory:
     """Memory for PPO."""
 
-    def __init__(self, hparams: HParams, envs: gym.envs, device: torch.device):
+    def __init__(self, hparams: PPOHparams, envs, device: str):
         """Initialize the memory."""
         self.hparams = hparams
         self.envs = envs

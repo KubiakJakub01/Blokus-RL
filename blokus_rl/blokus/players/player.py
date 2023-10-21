@@ -32,7 +32,7 @@ class Player:
         """
         self.index = index
         self.name = name
-        self.corners = set()
+        self.corners: set[list] = set()
         self.score = 0
         self.game = game
         self.rng = random.Random(0)

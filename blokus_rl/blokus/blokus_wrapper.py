@@ -40,7 +40,7 @@ class BlokusGameWrapper:
         self.board_size = self.hparams.board_size
         self.number_of_players = self.hparams.number_of_players
         self.hparams.states_dir.mkdir(parents=True, exist_ok=True)
-        self.all_possible_indexes_to_moves = None
+        self.all_possible_indexes_to_moves: list[Shape] = []
         self.starter_won = 0
         self.last_won = 0
         self.games_played = 0

@@ -4,7 +4,7 @@ import math
 
 import numpy as np
 
-from ..blokus import BlokusGameWrapper, BlokusNNet
+from ..blokus import BlokusGameWrapper, BlokusNNetWrapper
 from ..hparams import MCTSHparams
 from ..utils import LOG_ERROR
 
@@ -16,7 +16,7 @@ class MCTS:
     This class handles the MCTS tree.
     """
 
-    def __init__(self, game: BlokusGameWrapper, nnet: BlokusNNet, hparams: MCTSHparams):
+    def __init__(self, game: BlokusGameWrapper, nnet: BlokusNNetWrapper, hparams: MCTSHparams):
         self.game = game
         self.nnet = nnet
         self.hparams = hparams
@@ -27,7 +27,6 @@ class MCTS:
         self.N_sa = {}  # stores #times edge s,a was visited
         self.N_s = {}  # stores #times board s was visited
         self.P_s = {}  # stores initial policy (returned by neural net)
-
         self.E_s = {}  # stores game.getGameEnded ended for board s
         self.V_s = {}  # stores game.getValidMoves for board s
 

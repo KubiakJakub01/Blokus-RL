@@ -2,7 +2,7 @@
 import argparse
 from pathlib import Path
 
-from .hparams import HParams, load_hparams
+from .hparams import load_hparams
 from .ppo import PPOTrainer
 from .mcts import MCTSTrainer
 from .utils import LOG_INFO, seed, set_environ
@@ -27,12 +27,12 @@ def get_params():
     return parser.parse_args()
 
 
-def train_agent(algo: str, hparams: HParams):
+def train_agent(algo: str, hparams):
     """Train a model."""
     if algo == "ppo":
-        trainer = PPOTrainer(hparams)
+        trainer = PPOTrainer(hparams)  # type: ignore
     elif algo == "mcts":
-        trainer = MCTSTrainer(hparams)
+        trainer = MCTSTrainer(hparams)  # type: ignore
     trainer.train()
 
 

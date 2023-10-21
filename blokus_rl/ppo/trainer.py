@@ -209,7 +209,7 @@ class PPOTrainer:
             np.random.shuffle(b_inds)
             for start in range(0, self.hparams.batch_size, self.hparams.minibatch_size):
                 end = start + self.hparams.minibatch_size
-                mb_inds = b_inds[start:end]
+                mb_inds = int(b_inds[start:end])
 
                 _, newlogprob, entropy, newvalue = self.agent.get_action_and_value(
                     batch["obs"][mb_inds], batch["actions"].long()[mb_inds]

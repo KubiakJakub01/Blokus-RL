@@ -43,7 +43,7 @@ class MCTSTrainer:
         self.nnet = BlokusNNetWrapper(self.game, self.hparams, self.device)
         self.pnet = BlokusNNetWrapper(self.game, self.hparams, self.device)
         # Can be overriden in load_checkpoint()
-        self.train_examples_history = []
+        self.train_examples_history: list[deque] = []
         self.interation = 0
         if self.hparams.load_checkpoint_step is not None:
             LOG_INFO("Starting from checkpoint %d", self.hparams.load_checkpoint_step)
@@ -55,7 +55,7 @@ class MCTSTrainer:
 
         LOG_INFO("Trainer initialized with device %s", self.device)
 
-    def execute_episode(self) -> list[tuple[Any, Any, Any, Any]]:
+    def execute_episode(self) -> list[tuple[object, object, Any]]:
         """
         This function executes one episode of self-play, starting with player 1.
         As the game is played, each turn is added as a training example to
@@ -208,6 +208,9 @@ class MCTSTrainer:
 
     def _load_checkpoint(self, iteration: int):
         """Load the checkpoint."""
+        if self.hparams.load_checkpoint_step is None:
+            LOG_WARNING("load_checkpoint_step is None")
+            return
         model_filename = self._get_checkpoint_file(iteration)
         examples_fp = (self.hparams.checkpoint_dir / model_filename).with_suffix(
             ".examples"
@@ -254,7 +257,7 @@ class MCTSTrainer:
             else:
                 self._running_vals[f"{prefix}/{key}"].append(value)
 
-    def _log_video(self, items: dict[str, Any], step: int):
+    def _log_video(self, items: list[dict[str, Any]], step: int):
         """Log the video."""
         if not self.hparams.capture_video:
             return
