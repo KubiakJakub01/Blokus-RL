@@ -4,7 +4,6 @@ from Cython.Build import build_ext, cythonize
 
 ext_modules = [
     Extension("blokus_rl.blokus.blokus_wrapper", ["blokus_rl/blokus/blokus_wrapper.py"]),
-    Extension("blokus_rl.blokus.shapes.shape", ["blokus_rl/blokus/shapes/shape.py"]),
     Extension("blokus_rl.blokus.shapes.shapes", ["blokus_rl/blokus/shapes/shapes.py"]),
     Extension("blokus_rl.blokus.players.player", ["blokus_rl/blokus/players/player.py"]),
     Extension("blokus_rl.blokus.game.blokus_game", ["blokus_rl/blokus/game/blokus_game.py"]),
