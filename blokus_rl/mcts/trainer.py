@@ -168,7 +168,20 @@ class MCTSTrainer:
                 self.hparams.arena_compare, self.hparams.verbose
             )
 
+            # Compute the elo
+            self.nnet.elo = self._compute_new_elo(
+                self.nnet.elo, self.pnet.elo, nwins, pwins, draws
+            )
+            self.pnet.elo = self._compute_new_elo(
+                self.pnet.elo, self.nnet.elo, pwins, nwins, draws
+            )
+            LOG_INFO("ELO: %d", self.nnet.elo)
+
             self._log_video(items, i)
+            self._update_running_vals(
+                {"agent_elo": self.nnet.elo, "elo_diff": self.nnet.elo - self.pnet.elo},
+                prefix="elo",
+            )
             self._update_running_vals(
                 {"opponent_wins": pwins, "agent_wins": nwins, "draws": draws},
                 prefix="arena",
@@ -291,3 +304,29 @@ class MCTSTrainer:
             self.hparams.video_dir.mkdir(parents=True, exist_ok=True)
         # Save the hyperparameters
         hparams.dump_to_yaml(hparams.checkpoint_dir.parent / "hparams.yaml")
+
+    def _compute_new_elo(
+        self,
+        agent_elo: float,
+        opponent_elo: float,
+        agent_wins: int,
+        opponent_wins: int,
+        draws: int,
+    ):
+        """Compute the new elo."""
+        expected_score = 1 / (1 + 10 ** ((opponent_elo - agent_elo) / 400))
+        change_in_rank_from_wins = (
+            self.hparams.elo_convert_rate * (1 - expected_score) * agent_wins
+        )
+        change_in_rank_from_losses = (
+            self.hparams.elo_convert_rate * (0 - expected_score) * opponent_wins
+        )
+        change_in_rank_from_draws = (
+            self.hparams.elo_convert_rate * (0.5 - expected_score) * draws
+        )
+        return (
+            agent_elo
+            + change_in_rank_from_wins
+            + change_in_rank_from_losses
+            + change_in_rank_from_draws
+        )
