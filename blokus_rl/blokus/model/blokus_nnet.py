@@ -109,6 +109,7 @@ class BlokusNNetWrapper:
         self.nnet = BlokusNNet(game, hparams).to(self.device)
         self.board_x, self.board_y = game.get_board_size()
         self.action_size = game.get_action_size()
+        self.elo = 1000
 
     def train(self, examples):
         """
@@ -187,7 +188,7 @@ class BlokusNNetWrapper:
         """Save the model."""
         model_path = self.hparams.checkpoint_dir / filename
         LOG_INFO("Saving checkpoint to: %s", model_path)
-        torch.save(self.nnet.state_dict(), model_path)
+        torch.save({"nnet": self.nnet.state_dict(), "elo": self.elo}, model_path)
 
     def load_checkpoint(self, filename: str = "checkpoint.pth.tar"):
         """Load the model."""
@@ -195,4 +196,5 @@ class BlokusNNetWrapper:
         LOG_INFO("Loading model from: %s", str(model_path))
         assert model_path.exists(), f"Model path doesn't exist {model_path}"
         checkpoint = torch.load(model_path, map_location=self.device)
-        self.nnet.load_state_dict(checkpoint)
+        self.nnet.load_state_dict(checkpoint["nnet"])
+        self.elo = checkpoint["elo"]
