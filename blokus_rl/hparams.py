@@ -217,6 +217,9 @@ class MCTSHparams(HParams):
         default=40, metadata={"help": "Number of arena comparisons"}
     )
     cpuct: int = field(default=1, metadata={"help": "CPUCT"})
+    elo_convert_rate: int = field(
+        default=20, metadata={"help": "Elo convert rate for elo calculation"}
+    )
 
     # Checkpoint parameters
     best_model_name: str = field(
