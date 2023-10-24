@@ -232,6 +232,14 @@ class MCTSHparams(HParams):
         default=20, metadata={"help": "Number of iterations for train examples history"}
     )
 
+    # Evaluation parameters
+    player_1: str = field(
+        default="random", metadata={"help": "Type of player 1 (random or checkpoint)"}
+    )
+    player_2: str = field(
+        default="random", metadata={"help": "Type of player 2 (random or checkpoint)"}
+    )
+
 
 HParamsType = HParams | PPOHparams | MCTSHparams
 

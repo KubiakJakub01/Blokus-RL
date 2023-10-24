@@ -1,9 +1,9 @@
-from abc import ABC, abstractmethod
+"""Module that defines the shapes that are used in the game."""
 
 import numpy as np
 
 
-class Shape(ABC):
+class Shape:
     """
     A class that defines the functions associated
     with a shape.
@@ -16,7 +16,6 @@ class Shape(ABC):
     rotation_matrix = np.array([(0, -1), (1, 0)])
     ref_point: tuple[int, int] | None = None
 
-    @abstractmethod
     def set_points(self, x, y):
         pass
 
