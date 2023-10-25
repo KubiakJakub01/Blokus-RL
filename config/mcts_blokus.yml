@@ -1,0 +1,7 @@
+cuda: true
+num_eps: 5
+num_mcts_sims: 10
+arena_compare: 10
+checkpoint_dir: models/mcts/checkpoints
+log_dir: models/mcts/logs
+verbose: false

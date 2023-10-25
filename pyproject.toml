@@ -2,18 +2,26 @@
 name = "blokus_rl"
 description = "Reinforcement learning for blokus game"
 readme = "README.md"
-version = "0.1.0"
+version = "0.0.0"
 authors = [
     { name = "Jakub Kubiak", email = "kubiak.jakub01@gmail.com" }
 ]
 requires-python = ">=3.10"
 dependencies = [
-    "torch==2.0.1",
-    "gymnasium==0.29.1",
-    "moviepy==1.0.3",
     "coloredlogs==15.0.1",
+    "Cython==3.0.3",
+    "gymnasium==0.29.1",
+    "matplotlib==3.8.0",
+    "moviepy==1.0.3",
+    "mypy==1.6.1",
     "numpy==1.25.2",
-    "pylint==3.0.1"
+    "pycodestyle==2.11.1",
+    "pylint==3.0.1",
+    "PyYAML==6.0.1",
+    "tensorboard==2.14.1",
+    "torch==2.0.1",
+    "types-PyYAML==6.0.12.12",
+    "wandb==0.15.12"
 ]
 classifiers = [
     "Programming Language :: Python :: 3.10",
@@ -21,6 +29,25 @@ classifiers = [
     "Topic :: Games/Entertainment :: Board Games"
 ]
 
+[tool.pylint]
+max-line-length = 120
+disable = [
+    "missing-module-docstring",
+    "missing-class-docstring",
+    "missing-function-docstring",
+    "too-many-arguments",
+    "too-many-instance-attributes",
+    "cell-var-from-loop",
+    "invalid-name",
+    "import-outside-toplevel",
+    "c-extension-no-member",
+    "too-many-locals",
+    "too-few-public-methods"
+]
+generated-members=["numpy.*","torch.*"]
+
+[tool.setuptools]
+py-modules = []
+
 [build-system]
-build-backend = "flit_core.buildapi"
-requires = ["flit_core >=3.8.0,<4"]
+requires = ["setuptools", "wheel", "Cython"]

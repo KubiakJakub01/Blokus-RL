@@ -1,20 +1,22 @@
 """Deep neural network model for PPO algorithm."""
+from typing import Any
+
 import numpy as np
 import torch
-import torch.nn as nn
+from torch import nn
 from torch.distributions.categorical import Categorical
 
-from ..hparams import HParams
+from ..hparams import PPOHparams
 
 
 def layer_init(layer: nn.Linear, std=np.sqrt(2), bias_const=0.0):
     """Initialize a linear layer with orthogonal initialization.
-    
+
     Args:
         layer: Linear layer to initialize.
         std: Standard deviation of the weights.
         bias_const: Constant to initialize the bias with.
-    
+
     Returns:
         Initialized linear layer."""
     torch.nn.init.orthogonal_(layer.weight, std)
@@ -26,7 +28,7 @@ class FilterLegalMoves(nn.Module):
     """Filter out illegal moves."""
 
     def __init__(self):
-        super(FilterLegalMoves, self).__init__()
+        super().__init__()
 
     def forward(self, x, possible_moves):
         actions_tensor = torch.zeros(x.shape).to(x.device)
@@ -54,7 +56,7 @@ class ConvBlock(nn.Module):
         dropout: float = 0.1,
     ):
         """Convolutional block.
-        
+
         Args:
             in_channels: Number of input channels.
             out_channels: Number of output channels.
@@ -64,12 +66,12 @@ class ConvBlock(nn.Module):
             padding: Padding.
             dropout: Dropout probability.
             std: Standard deviation of the weights.
-            
+
         Returns:
             Initialized convolutional block."""
-        super(ConvBlock, self).__init__()
+        super().__init__()
         assert n_layers >= 1, "Number of layers must be at least 1"
-        layers = []
+        layers: list[Any] = []
         layers.append(
             nn.Conv2d(
                 in_channels, out_channels, kernel_size, stride=stride, padding=padding
@@ -100,13 +102,13 @@ class ConvBlock(nn.Module):
 class CnnAgent(nn.Module):
     """Agent with a convolutional block."""
 
-    def __init__(self, envs, hparams: HParams):
+    def __init__(self, envs, hparams: PPOHparams):
         """Initialize the agent.
-        
+
         Args:
             envs: Environment object.
             hparams: Hyperparameters."""
-        super(CnnAgent, self).__init__()
+        super().__init__()
         self.board_dim = np.array(envs.single_observation_space.shape).prod()
         self.output_dim = envs.single_action_space.n
         self.d_model = hparams.d_model
@@ -130,6 +132,12 @@ class CnnAgent(nn.Module):
             self.d_model * self.board_dim, self.d_model, 1, hparams.dropout, std=1.0
         )
 
+    def forward(self, x, possible_moves=None):
+        x = self.conv_block(x)
+        x = x.view(x.size(0), -1)
+        x = self.actor(x, possible_moves)
+        return x
+
     def get_value(self, x):
         """Get the value of a state."""
         x = self.conv_block(x)
@@ -150,17 +158,17 @@ class CnnAgent(nn.Module):
 class MLP(nn.Module):
     def __init__(self, input_dim, hidden_dim, output_dim, dropout=0.1, std=0.01):
         """Multi-layer perceptron.
-        
+
         Args:
             input_dim: Dimensionality of the input.
             hidden_dim: Dimensionality of the hidden layers.
             output_dim: Dimensionality of the output.
             dropout: Dropout probability.
             std: Standard deviation of the weights.
-            
+
         Returns:
             Initialized MLP."""
-        super(MLP, self).__init__()
+        super().__init__()
         self.net = nn.Sequential(
             layer_init(nn.Linear(input_dim, hidden_dim)),
             nn.Dropout(dropout),
@@ -185,14 +193,14 @@ class MLP(nn.Module):
 class Agent(nn.Module):
     """Agent network."""
 
-    def __init__(self, envs, hparams: HParams):
+    def __init__(self, envs, hparams: PPOHparams):
         """Initialize the agent.
 
         Args:
             envs: Environment object.
             hparams: Hyperparameters.
         """
-        super(Agent, self).__init__()
+        super().__init__()
         self.input_dim = np.array(envs.single_observation_space.shape).prod()
         self.output_dim = envs.single_action_space.n
         self.d_model = hparams.d_model
@@ -201,6 +209,11 @@ class Agent(nn.Module):
             self.input_dim, self.d_model, self.output_dim, hparams.dropout, std=0.01
         )
         self.critic = MLP(self.input_dim, self.d_model, 1, hparams.dropout, std=1.0)
+
+    def forward(self, x, possible_moves=None):
+        x = self._preprocess(x)
+        x = self.actor(x, possible_moves)
+        return x
 
     def get_value(self, x):
         """Get the value of a state."""

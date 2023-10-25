@@ -16,6 +16,7 @@ class BlokusGame:
         self.players = []
         self.rounds = 0
         self.board = board
+        self.canonical_board = board.tensor
         self.all_pieces = all_pieces
         self.number_of_players = number_of_players
 
@@ -95,15 +96,7 @@ class BlokusGame:
             proposal = current.do_move()
             if proposal is None:
                 # move on to next player, increment rounds
-                print("No valid move, moving on to next player")
-                print(
-                    f"{current.name} possible moves: {str(current.possible_move_indexes())}"
-                )
                 self.move_to_next_player()
-                next = self.next_player()
-                print(
-                    f"{next.name} player possible moves: {str(self.next_player().possible_move_indexes())}"
-                )
             # ensure that the proposed move is valid
             elif self.valid_move(current, proposal):
                 # update the board with the move
@@ -114,8 +107,6 @@ class BlokusGame:
                 current.remove_piece(proposal)
                 # place the player at the back of the queue
                 self.move_to_next_player()
-        else:
-            print("Game over! And the winner is: " + self.winners())
 
     def move_to_next_player(self):
         """Move to the next player which has not finished his moves"""
@@ -124,8 +115,7 @@ class BlokusGame:
         for _ in range(len(self.players)):
             if self.next_player().remains_move:
                 break
-            else:
-                self._move_to_next_player()
+            self._move_to_next_player()
 
     def _move_to_next_player(self):
         """Move to the next player"""

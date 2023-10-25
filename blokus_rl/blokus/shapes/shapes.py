@@ -1,30 +1,96 @@
-from ..shapes.shape import Shape
+"""Module that defines the shapes that are used in the game."""
+
+import numpy as np
 
 
-def get_all_shapes():
-    return [
-        I1(),
-        I2(),
-        I3(),
-        I4(),
-        I5(),
-        V3(),
-        L4(),
-        Z4(),
-        O4(),
-        L5(),
-        T5(),
-        V5(),
-        N(),
-        Z5(),
-        T4(),
-        P(),
-        W(),
-        U(),
-        F(),
-        X(),
-        Y(),
-    ]
+class Shape:
+    """
+    A class that defines the functions associated
+    with a shape.
+    """
+
+    label: str = ""
+    points: list = []
+    corners: list = []
+    idx: int = -1
+    rotation_matrix = np.array([(0, -1), (1, 0)])
+    ref_point: tuple[int, int] | None = None
+
+    def set_points(self, x, y):
+        pass
+
+    @property
+    def size(self):
+        return len(self.points)
+
+    def rotate(self):
+        """
+        Returns the points that would be covered by a
+        shape that is rotated 0, 90, 180, of 270 degrees
+        in a clockwise direction.
+        """
+        np_ref = np.array([self.ref_point])
+        np_points = np.array(self.points)
+        np_corners = np.array(self.corners)
+
+        np_points = (np_points - np_ref) @ self.rotation_matrix + np_ref
+        self.points = list(map(tuple, np_points))
+
+        np_corners = (np_corners - np_ref) @ self.rotation_matrix + np_ref
+        self.corners = list(map(tuple, np_corners))
+
+    def flip(self):
+        """
+        Returns the points that would be covered if the shape
+        was flipped horizontally or vertically.
+        """
+        np_ref = np.array([self.ref_point])
+        np_points = np.array(self.points)
+        np_corners = np.array(self.corners)
+
+        np_points = np_points - np_ref
+        np_points[:, 1] = -np_points[:, 1]
+        np_points = np_points + np_ref
+        self.points = list(map(tuple, np_points))
+
+        np_corners = np_corners - np_ref
+        np_corners[:, 1] = -np_corners[:, 1]
+        np_corners = np_corners + np_ref
+        self.corners = list(map(tuple, np_corners))
+
+    @staticmethod
+    def from_json(obj):
+        shape = Shape()
+        shape.label = obj["label"]
+        shape.points = list(map(tuple, obj["points"]))
+        shape.corners = list(map(tuple, obj["corners"]))
+        shape.idx = obj["idx"]
+
+        return shape
+
+    def to_json(self, idx):
+        self.idx = idx
+        return {
+            "label": self.label,
+            "points": [(int(x), int(y)) for x, y in self.points],
+            "corners": [(int(x), int(y)) for x, y in self.corners],
+            "idx": self.idx,
+        }
+
+    def __eq__(self, value):
+        return sorted(self.points) == sorted(value.points)
+
+    def __lt__(self, value):
+        return self.idx < value.idx
+
+    def __hash__(self):
+        return hash(str(sorted(self.points)))
+
+    def __str__(self):
+        return "\n".join([f"Id: {self.label}", f"Points: {sorted(self.points)}"])
+
+    def __repr__(self) -> str:
+        return " ".join([f"Shape: {self.label}", f"Points: {sorted(self.points)}"])
 
 
 class I1(Shape):
@@ -380,3 +446,29 @@ class Y(Shape):
             (x - 2, y + 1),
             (x - 2, y - 1),
         ]
+
+
+def get_all_shapes() -> list[Shape]:
+    return [
+        I1(),
+        I2(),
+        I3(),
+        I4(),
+        I5(),
+        V3(),
+        L4(),
+        Z4(),
+        O4(),
+        L5(),
+        T5(),
+        V5(),
+        N(),
+        Z5(),
+        T4(),
+        P(),
+        W(),
+        U(),
+        F(),
+        X(),
+        Y(),
+    ]

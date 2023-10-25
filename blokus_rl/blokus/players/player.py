@@ -5,7 +5,7 @@ import random
 from collections import defaultdict
 
 from ..game.blokus_game import BlokusGame
-from ..shapes.shape import Shape
+from ..shapes import Shape
 
 
 class Player:
@@ -20,7 +20,7 @@ class Player:
         deterministic=False,
     ):
         """Initializes a player with an index, name, and a set of pieces.
-        
+
         Args:
             index: An integer representing the player's index. \
                 Player blocks are represented by their index in the board tensor.
@@ -32,7 +32,7 @@ class Player:
         """
         self.index = index
         self.name = name
-        self.corners = set()
+        self.corners: set[list] = set()
         self.score = 0
         self.game = game
         self.rng = random.Random(0)

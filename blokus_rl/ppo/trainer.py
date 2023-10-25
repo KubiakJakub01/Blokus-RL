@@ -7,12 +7,11 @@ from typing import Any
 import gymnasium as gym
 import numpy as np
 import torch
-import torch.nn as nn
-import torch.optim as optim
+from torch import nn, optim
 from torch.utils.tensorboard import SummaryWriter
 
 from ..hparams import PPOHparams
-from ..utils import LOG_DEBUG, LOG_INFO, LOG_WARNING, make_envs
+from ..utils import LOG_INFO, LOG_WARNING, make_envs
 from .agent import get_agent
 from .memory import Memory
 
@@ -25,7 +24,7 @@ class PPOTrainer:
 
     def __init__(self, hparams: PPOHparams):
         """Initialize the trainer.
-        
+
         Args:
             hparams: Hyperparameters for the trainer."""
         self.hparams = hparams
@@ -45,6 +44,7 @@ class PPOTrainer:
         self.memory = Memory(self.hparams, self.envs, self.device)
         self.running_vals = self._reset_running_vals()
 
+        self.global_step = 0
         self._total_episodes = 0
         self._total_episodes_reward = 0
 
@@ -54,7 +54,6 @@ class PPOTrainer:
         """Train the agent."""
 
         # Set the initial values
-        self.global_step = 0
         start_time = time.time()
         next_obs, _ = self.envs.reset()
         next_obs = torch.Tensor(next_obs).to(self.device)
@@ -108,7 +107,7 @@ class PPOTrainer:
 
         hparams:
             update: Current update step.
-        
+
         Returns:
             Annealed learning rate."""
         frac = 1.0 - (update - 1.0) / self.hparams.num_updates
@@ -118,11 +117,11 @@ class PPOTrainer:
         self, next_obs: torch.Tensor, next_done: torch.Tensor
     ) -> tuple[torch.Tensor, torch.Tensor]:
         """Play the environment for a number of steps.
-        
+
         Args:
             next_obs: Next observation.
             next_done: Whether the next state is done.
-        
+
         Returns:
             Next observation and whether the next state is done."""
         for step in range(self.hparams.num_steps):
@@ -176,7 +175,6 @@ class PPOTrainer:
 
         Returns:
             Generalized advantage estimation."""
-        LOG_DEBUG(f"step: %d rewards: %s", self.global_step, self.memory.rewards)
         advantages = torch.zeros_like(self.memory.rewards).to(self.device)
         lastgaelam = 0
         for t in reversed(range(self.hparams.num_steps)):
@@ -211,7 +209,7 @@ class PPOTrainer:
             np.random.shuffle(b_inds)
             for start in range(0, self.hparams.batch_size, self.hparams.minibatch_size):
                 end = start + self.hparams.minibatch_size
-                mb_inds = b_inds[start:end]
+                mb_inds = int(b_inds[start:end])
 
                 _, newlogprob, entropy, newvalue = self.agent.get_action_and_value(
                     batch["obs"][mb_inds], batch["actions"].long()[mb_inds]
@@ -306,7 +304,7 @@ class PPOTrainer:
 
     def _update_running_vals(self, items: dict[str, Any], prefix=None):
         """Update the running values.
-        
+
         Args:
             items: Dictionary containing the values.
             prefix: Prefix for the keys."""
@@ -351,7 +349,7 @@ class PPOTrainer:
 
     def _get_valid_moves_mask(self) -> torch.Tensor | None:
         """Get the valid moves for the environment.
-        
+
         If None is returned there is no restriction on the moves."""
         if "blokus" in self.hparams.gym_env:
             return self.envs.get_attr("ai_possible_indexes")

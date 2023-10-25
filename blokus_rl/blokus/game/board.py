@@ -4,8 +4,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 import torch
 
-from ..players.player import Player
-from ..shapes.shape import Shape
+from ..players import Player
+from ..shapes import Shape
 
 
 class Board:
@@ -17,7 +17,6 @@ class Board:
     """
 
     def __init__(self, size):
-        plt.ion()
         self.size = size
         self.tensor = torch.zeros((size, size), dtype=torch.int32)
 
@@ -76,17 +75,18 @@ class Board:
             for x, y in move.points
         )
 
-    def print_board(self, mode="human"):
-        if mode == "human":
-            self.fancy_board()
+    def display(self, mode="tensor"):
+        if mode == "fancy":
+            board_data = self.fancy_board()
+            plt.imshow(board_data)
+            plt.show()
         elif mode == "minimal":
             self.print_board_min()
         elif mode == "tensor":
-            self.print_tensor()
+            self.print_board()
 
-    def print_tensor(self):
-        print(chr(27) + "[2J")
-        print(self.tensor.permute())
+    def print_board(self):
+        print(self.tensor.numpy())
 
     def print_board_min(self):
         print(chr(27) + "[2J")
@@ -99,10 +99,11 @@ class Board:
         print(f"Coverage: {coverage:.2f}%")
 
     def fancy_board(self):
-        plt.clf()
-
+        fig, ax = plt.subplots()
+        ax.set_xlim(0, self.size)
+        ax.set_ylim(0, self.size)
         colors = {0: "lightgrey", 1: "red", 2: "blue", 3: "yellow", 4: "green"}
-        ax = plt.subplot(xlim=(0, self.size), ylim=(0, self.size))
+
         for y in range(self.size):
             for x in range(self.size):
                 polygon = plt.Polygon(
@@ -114,5 +115,11 @@ class Board:
         plt.yticks(np.arange(0, self.size, 1))
         plt.xticks(np.arange(0, self.size, 1))
         plt.grid()
-        plt.draw()
-        plt.pause(0.00001)
+
+        # Render the image and convert it to a NumPy array
+        fig.canvas.draw()
+        image_data = np.frombuffer(fig.canvas.tostring_rgb(), dtype=np.uint8)
+        image_data = image_data.reshape(fig.canvas.get_width_height()[::-1] + (3,))
+        plt.close(fig)  # Close the figure to free up resources
+
+        return image_data

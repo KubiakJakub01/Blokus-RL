@@ -7,3 +7,5 @@ optuna.db
 *.log
 **/*.c
 **/*.so
+build/
+*.egg-info
