@@ -10,7 +10,7 @@ import torch
 from .blokus import BlokusGameWrapper, BlokusNNetWrapper
 from .hparams import MCTSHparams, load_hparams
 from .mcts import MCTS, Arena
-from .utils import LOG_INFO
+from .utils import LOG_INFO, set_environ
 
 
 def get_params():
@@ -26,15 +26,25 @@ def get_params():
 
 
 def init_player(player: str, game: BlokusGameWrapper, hparams: MCTSHparams, device: str):
+    """Initialize a player.
+
+    Args:
+        player: The player to initialize.
+        game: The game.
+        hparams: The hyperparameters.
+        device: The device to use.
+
+    Returns:
+        A function that takes a board as input and returns an action."""
     if player == "random":
-        print("Using random player")
         return game.sample_move
+
     if Path(player).exists():
-        print(f"Using player from: {player}")
         nnet = BlokusNNetWrapper(game, hparams, device)
         nnet.load_checkpoint(player)
         mcts = MCTS(game, nnet, hparams)
         return lambda x: int(np.argmax(mcts.get_action_prob(x, temp=0)))
+
     raise ValueError(f"Unknown player: {player}")
 
 
@@ -56,14 +66,18 @@ def log_video(hparams: MCTSHparams, items: list[dict[str, Any]], step: int):
 def main():
     # Get CLI arguments
     params = get_params()
+
     # Initialize game
     hparams = load_hparams(params.hparams_fp, "mcts")
+    set_environ(hparams)
     device = "cuda" if torch.cuda.is_available() and hparams.cuda else "cpu"
     game = BlokusGameWrapper(hparams)
 
     # Initialize players
     player1 = init_player(hparams.player_1, game, hparams, device)
     player2 = init_player(hparams.player_2, game, hparams, device)
+    LOG_INFO("Player 1: %s", hparams.player_1)
+    LOG_INFO("Player 2: %s", hparams.player_2)
 
     # Initialize arena
     arena = Arena(player1, player2, game, capture_video=hparams.capture_video)

@@ -7,7 +7,7 @@ import torch.optim as optim
 from tqdm import tqdm
 
 from ...hparams import MCTSHparams
-from ...utils import AverageMeter, LOG_INFO
+from ...utils import LOG_INFO, AverageMeter
 from ..blokus_wrapper import BlokusGameWrapper
 
 
@@ -18,14 +18,21 @@ class FilterLegalMoves(nn.Module):
         super(FilterLegalMoves, self).__init__()
 
     def forward(self, x, possible_moves):
+        # Create a tensor of zeros
         actions_tensor = torch.zeros(x.shape).to(x.device)
+
         # Create a mask to filter out illegal moves
         mask = torch.zeros(x.shape).to(x.device)
         for i, possible_move in enumerate(possible_moves):
             mask[i, possible_move] = 1
+
         # Apply mask
         actions_tensor = x * mask
+
+        # Set illegal moves to -inf (large negative number)
         actions_tensor[actions_tensor == 0] = -1e9
+
+        # Return filtered tensor
         return actions_tensor
 
 
@@ -131,9 +138,13 @@ class BlokusNNetWrapper:
                 batch_count = int(len(examples) / self.hparams.batch_size)
 
                 for _ in range(batch_count):
+
+                    # sample batch
                     sample_ids = np.random.randint(
                         len(examples), size=self.hparams.batch_size
                     )
+
+                    # prepare batch
                     boards, pis, vs = list(zip(*[examples[i] for i in sample_ids]))
                     boards = torch.FloatTensor(np.array(boards).astype(np.float64)).to(
                         self.device
@@ -143,8 +154,10 @@ class BlokusNNetWrapper:
                         self.device
                     )
 
-                    # compute output
+                    # forward pass
                     out_pi, out_v = self.nnet(boards)
+
+                    # compute loss
                     l_pi = self.loss_pi(target_pis, out_pi)
                     l_v = self.loss_v(target_vs, out_v)
                     total_loss = l_pi + l_v
@@ -157,11 +170,12 @@ class BlokusNNetWrapper:
                         Loss_pi=pi_losses, Loss_v=v_losses, Total_loss=total_losses
                     )
 
-                    # compute gradient and do SGD step
+                    # compute gradient and do optimizer step
                     optimizer.zero_grad()
                     total_loss.backward()
                     optimizer.step()
 
+        # Return losses
         return pi_losses, v_losses, total_losses
 
     def predict(self, board):
@@ -175,7 +189,6 @@ class BlokusNNetWrapper:
         with torch.no_grad():
             pi, v = self.nnet(board)
 
-        # print('PREDICTION TIME TAKEN : {0:03f}'.format(time.time()-start))
         return torch.exp(pi).data.cpu().numpy()[0], v.data.cpu().numpy()[0]
 
     def loss_pi(self, targets, outputs):
