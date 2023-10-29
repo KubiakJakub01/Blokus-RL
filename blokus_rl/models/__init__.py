@@ -1,0 +1,1 @@
+from .dumbnet import DumbNet
