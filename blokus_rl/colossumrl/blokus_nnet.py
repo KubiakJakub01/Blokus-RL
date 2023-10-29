@@ -2,11 +2,10 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import torch.optim as optim
-from tqdm import tqdm
+
 
 from ..hparams import MCTSHparams
-from ..utils import LOG_INFO, AverageMeter
+from ..utils import LOG_INFO, AverageMeter, to_device
 from .blokus_wrapper import ColosseumBlokusGameWrapper
 
 
@@ -103,58 +102,85 @@ class BlokusNNetWrapper():
             lr=self.hparams.lr,
             weight_decay=self.hparams.weight_decay)
 
-
-    # Incoming data is a numpy array containing (state, prob, outcome) tuples.
-    def train(self, data):
+    def train_step(self, batch):
+        """Train the model for one step.
+        
+        Args:
+            batch: A batch of data.
+        
+        Returns:
+            The loss."""
         self.model.train()
-        idx = np.random.randint(len(data), size=self.hparams.batch_size)
-        batch = data[idx]
-        states = np.stack(batch[:,0])
-        x = torch.tensor(states)
-        p_pred, v_pred = self.model(x)
-        p_gt, v_gt = batch[:,1], np.stack(batch[:,2])
-        loss = self.loss(states, (p_pred, v_pred), (p_gt, v_gt))
+
+        batch = to_device(batch, self.device)
+        obs = batch['observation']
+
+        p_pred, v_pred = self.model(obs)
+
+        masks = batch['mask']
+        p_gt = batch['prob']
+        v_gt = batch['score']
+
+        loss = self.loss(masks, (p_pred, v_pred), (p_gt, v_gt))
+
         self.optimizer.zero_grad()
         loss.backward()
         self.optimizer.step()
+
         self.latest_loss = loss.item()
         self.mean_loss.update(self.latest_loss)
+
         return loss.item()
 
-    # Given a single state s, does inference to produce a distribution of valid moves P and a value V.
     def predict(self, x, mask):
+        """Predict the policy and value for a given state.
+
+        Args:
+            x: The state.
+            mask: The mask of valid actions.
+
+        Returns:
+            The policy and value."""
         self.model.eval()
         with torch.no_grad():
-            x = torch.tensor(x, dtype=torch.float32)
+            x = torch.from_numpy(x).float()
             x = x.unsqueeze(0)
             x = x.to(self.device)
             p_logits, v = self.model(x)
+            mask = torch.from_numpy(mask).bool().to(self.device)
             p, v = self.get_valid_dist(mask, p_logits[0]).cpu().numpy().squeeze(), v.cpu().numpy().squeeze() # EXP because log softmax
         return p, v
 
-    # MSE + Cross entropy
-    def loss(self, states, mask, prediction, target):
-        batch_size = len(states)
+    def loss(self, masks, prediction, target):
+        """Compute the loss.
+        
+        Args:
+            masks: The mask of valid actions.
+            prediction: The prediction.
+            target: The target.
+        
+        Returns:
+            The loss."""
         p_pred, v_pred = prediction
         p_gt, v_gt = target
-        v_gt = torch.from_numpy(v_gt.astype(np.float32))
-        if self.cuda:
-            v_gt = v_gt.cuda()
-        v_loss = ((v_pred - v_gt)**2).sum() # Mean squared error
+        v_loss = ((v_pred - v_gt)**2).sum()  # Mean squared error
         p_loss = 0
-        for i in range(batch_size):
-            gt = torch.from_numpy(p_gt[i].astype(np.float32))
-            if self.cuda:
-                gt = gt.cuda()
-            s = states[i]
-            logits = p_pred[i]
-            pred = self.get_valid_dist(s, logits, log_softmax=True)
-            p_loss += -torch.sum(gt*pred)
+        # TODO: Make sure if loop here is necessary
+        for mask, gt, logits in zip(masks, p_gt, p_pred):
+            pred = self.get_valid_dist(mask, logits, log_softmax=True)
+            p_loss += -torch.sum(gt * pred)
         return p_loss + v_loss
 
-    # Takes one state and logit set as input, produces a softmax/log_softmax over the valid actions.
     def get_valid_dist(self, mask, logits, log_softmax=False):
-        mask = torch.tensor(mask, dtype=torch.bool).to(self.device)
+        """Get the valid distribution.
+
+        Args:
+            mask: The mask of valid actions.
+            logits: The logits.
+            log_softmax: Whether to return the log softmax.
+        
+        Returns:
+            The valid distribution."""
         selection = torch.masked_select(logits, mask)
         dist = torch.nn.functional.log_softmax(selection, dim=-1)
         if log_softmax:
