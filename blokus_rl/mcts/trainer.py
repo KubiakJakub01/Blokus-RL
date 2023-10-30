@@ -1,25 +1,32 @@
 import copy
-from collections import defaultdict, deque
+import time
+from collections import defaultdict
 from pickle import Pickler, Unpickler
-from random import shuffle
 from statistics import mean
-from typing import Any
+from typing import Any, Literal
 
 import imageio
 import numpy as np
 import torch
 from torch import Tensor
+from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
+from pytablewriter import MarkdownTableWriter
 
-from ..blokus import BlokusGameWrapper, BlokusNNetWrapper
+from ..arena import play_match
+from ..colossumrl import ColosseumBlokusGameWrapper, BlokusNNet
 from ..hparams import MCTSHparams
-from ..utils import LOG_INFO, LOG_WARNING
+from ..neural_network import BlokusNNetWrapper
+from ..players import MCTSPlayer
+from ..utils import LOG_DEBUG, LOG_INFO, LOG_WARNING
 from .arena import Arena
+from .dataset import MCTSDataset
 from .mcts import MCTS
+from ..models import DumbNet
 
 
-class MCTSTrainer:
+class AlphaZeroTrainer:
     """
     This class executes the self-play + learning. It uses the functions defined
     in Game and NeuralNet. args are specified in main.py.
@@ -37,13 +44,14 @@ class MCTSTrainer:
         self.writer = SummaryWriter(log_dir=self.hparams.log_dir)
 
         # Blokus game wrapper
-        self.game = BlokusGameWrapper(self.hparams)
+        self.game = ColosseumBlokusGameWrapper(self.hparams)
 
         # Agent and opponent neural nets with monte carlo tree search
-        self.nnet = BlokusNNetWrapper(self.game, self.hparams, self.device)
-        self.pnet = BlokusNNetWrapper(self.game, self.hparams, self.device)
+        self.nnet = BlokusNNetWrapper(self.game, self.hparams, BlokusNNet, self.device)
+
         # Can be overriden in load_checkpoint()
-        self.train_examples_history: list[deque] = []
+        # self.training_data = np.zeros((0,4))
+        self.training_data = []
         self.interation = 0
         if self.hparams.load_checkpoint_step is not None:
             LOG_INFO("Starting from checkpoint %d", self.hparams.load_checkpoint_step)
@@ -55,169 +63,186 @@ class MCTSTrainer:
 
         LOG_INFO("Trainer initialized with device %s", self.device)
 
-    def execute_episode(self) -> list[tuple[object, object, Any]]:
-        """
-        This function executes one episode of self-play, starting with player 1.
-        As the game is played, each turn is added as a training example to
-        train_examples. The game is played till the game ends. After the game
-        ends, the outcome of the game is used to assign values to each example
-        in train_examples.
-
-        It uses a temp=1 if episodeStep < tempThreshold, and thereafter
-        uses temp=0.
-
-        Returns:
-            trainExamples: a list of examples of the form (canonical_board, curr_player, pi, v)
-                           pi is the MCTS informed policy vector, v is +1 if
-                           the player eventually won the game, else -1.
-        """
-        mcts = MCTS(self.game, self.nnet, self.hparams)
-        train_examples = []
-        board, cur_player = self.game.get_init_board()
-        episode_step = 0
-
-        while True:
-            episode_step += 1
-            canonical_board = self.game.get_canonical_form(board, cur_player)
-            temp = int(episode_step < self.hparams.temp_threshold)
-
-            pi = mcts.get_action_prob(copy.deepcopy(canonical_board), temp=temp)
-            sym = self.game.get_symmetries(canonical_board, pi)
-            for b, p in sym:
-                train_examples.append([b, cur_player, p, None])
-
-            action = np.random.choice(len(pi), p=pi)
-            board, cur_player = self.game.get_next_state(board, cur_player, action)
-
-            r = self.game.get_game_ended(board, cur_player)
-
-            if r != 0:
-                return [
-                    (x[0], x[2], r * ((-1) ** (x[1] != cur_player)))
-                    for x in train_examples
-                ]
-
     def train(self):
-        """
-        Performs num_iters iterations with num_eps episodes of self-play in each iteration.
-
-        After every iteration, it retrains neural network with
-        examples in train_examples (which has a maximum length of max_len_of_queue).
-        It then pits the new neural network against the old one and accepts it
-        only if it wins >= update_threshold fraction of games.
-        """
-
-        for i in range(self.interation + 1, self.hparams.num_iters + 1):
-            LOG_INFO("Starting Iter #%d ...", i)
+        """Train the model."""
+        for i in range(self.hparams.num_iters):
+            LOG_INFO("Starting iteration %d", i + 1)
             self.interation += 1
-            # examples of the iteration
-            if not self.skip_first_self_play or i > 1:
-                iteration_train_examples = deque(
-                    [], maxlen=self.hparams.max_len_of_queue
+            self._run_iteration()
+
+    # Does one game of self play and generates training samples.
+    def _self_play(self, temperature):
+        s, current_player = self.game.get_init_board()
+        tree = MCTS(self.game, self.nnet)
+
+        data = []
+        scores = self.game.get_game_ended(s)
+        root = True
+        alpha = 1
+        weight = 0.25
+        while scores is None:
+            # Think
+            for _ in range(self.hparams.num_mcts_sims):
+                tree.simulate(s, current_player, cpuct=self.hparams.cpuct)
+
+            # Fetch action distribution and append training example template.
+            dist = tree.get_distribution(s, temperature=temperature)
+
+            # Add dirichlet noise to root
+            if root:
+                noise = np.random.dirichlet(
+                    np.array(alpha * np.ones_like(dist[:, 1].astype(np.float32)))
                 )
+                dist[:, 1] = dist[:, 1] * (1 - weight) + noise * weight
+                root = False
 
-                for _ in tqdm(range(self.hparams.num_eps), desc="Self Play"):
-                    iteration_train_examples += self.execute_episode()
+            obs, mask = self.game.get_observation(s, current_player)
+            data.append(
+                [obs, mask, dist[:, 1].astype(np.float32), None]
+            )  # state, prob, outcome
 
-                # save the iteration examples to the history
-                self.train_examples_history.append(iteration_train_examples)
+            # Sample an action
+            idx = np.random.choice(len(dist), p=dist[:, 1].astype(np.float32))
+            a = dist[idx, 0][0]
 
-            if (
-                len(self.train_examples_history)
-                > self.hparams.num_iters_for_train_examples_history
-            ):
-                LOG_WARNING(
-                    f"""Removing the oldest entry in train_examples. \
-                    len(train_examples_history) = {len(self.train_examples_history)}
-                    """
-                )
-                self.train_examples_history.pop(0)
-            # backup history to a file
-            # NB! the examples were collected using the model from the previous iteration, so (i-1)
-            self._save_train_examples(i - 1)
-
-            # shuffle examples before training
-            train_examples = []
-            for e in self.train_examples_history:
-                train_examples.extend(e)
-            shuffle(train_examples)
-
-            # training new network, keeping a copy of the old one
-            self.nnet.save_checkpoint(filename=self.hparams.temp_model_name)
-            self.pnet.load_checkpoint(filename=self.hparams.temp_model_name)
-            pmcts = MCTS(self.game, self.pnet, self.hparams)
-            pi_losses, v_losses, total_losses = self.nnet.train(train_examples)
-            self._update_running_vals(
-                {
-                    "pi_loss": pi_losses.avg,
-                    "v_loss": v_losses.avg,
-                    "total_loss": total_losses.avg,
-                },
-                prefix="loss",
-            )
-            nmcts = MCTS(self.game, self.nnet, self.hparams)
-
-            LOG_INFO("PITTING AGAINST PREVIOUS VERSION")
-            arena = Arena(
-                lambda x: int(np.argmax(pmcts.get_action_prob(x, temp=0))),
-                lambda x: int(np.argmax(nmcts.get_action_prob(x, temp=0))),
-                self.game,
-                self.hparams.capture_video,
-            )
-            pwins, nwins, draws, items = arena.play_games(
-                self.hparams.arena_compare, self.hparams.verbose
+            # Apply action
+            s, current_player, terminal, winners = self.game.get_next_state(
+                s, current_player, a
             )
 
-            # Compute the elo
-            self.nnet.elo = self._compute_new_elo(
-                self.nnet.elo, self.pnet.elo, nwins, pwins, draws
-            )
-            self.pnet.elo = self._compute_new_elo(
-                self.pnet.elo, self.nnet.elo, pwins, nwins, draws
-            )
-            LOG_INFO("ELO: %d", self.nnet.elo)
+            # Get scores
+            if terminal:
+                scores = self.game.get_scores(winners)
 
-            self._log_video(items, i)
-            self._update_running_vals(
-                {"agent_elo": self.nnet.elo, "elo_diff": self.nnet.elo - self.pnet.elo},
-                prefix="elo",
-            )
-            self._update_running_vals(
-                {"opponent_wins": pwins, "agent_wins": nwins, "draws": draws},
-                prefix="arena",
-            )
+        # Update training examples with outcome
+        for i, _ in enumerate(data):
+            data[i][-1] = scores
 
-            LOG_INFO("NEW/PREV WINS : %d / %d ; DRAWS : %d", (nwins, pwins, draws))
-            if (
-                pwins + nwins == 0
-                or float(nwins) / (pwins + nwins) < self.hparams.update_threshold
-            ):
-                LOG_INFO("REJECTING NEW MODEL")
-                self.nnet.load_checkpoint(filename=self.hparams.temp_model_name)
-            else:
-                LOG_INFO("ACCEPTING NEW MODEL")
-                self._model_version += 1
-                self.nnet.save_checkpoint(filename=self._get_checkpoint_file(i))
-                self.nnet.save_checkpoint(filename=self.hparams.best_model_name)
+        return data
 
-            self._update_running_vals(
-                {"model_version": self._model_version}, prefix="model"
+    # Performs one iteration of policy improvement.
+    # Creates some number of games, then updates network parameters some number of times from that training data.
+    def _run_iteration(self):
+        """Run one iteration of policy improvement.
+
+        Iteration consists of self-play, training, and arena compare."""
+
+        # Gather training examples from self-play
+        for _ in tqdm(range(self.hparams.num_eps), desc="Self play"):
+            new_train_data = self._self_play(self.hparams.temperature)
+
+        # Save the training examples
+        self._save_train_examples(self.interation, new_train_data)
+
+        # Save temp model to load into pnet
+        self.nnet.save_checkpoint(filename=self.hparams.temp_model_name)
+
+        # Prepare the training data
+        losses = []
+        train_dl = DataLoader(
+            MCTSDataset(self.hparams), batch_size=self.hparams.batch_size, shuffle=True
+        )
+
+        # Train the model
+        with tqdm(total=self.hparams.num_updates, desc="Training Net") as train_bar:
+            for i, batch in enumerate(self._make_infinite_dataloader(train_dl)):
+                loss = self.nnet.train_step(batch)
+                losses.append(loss)
+                train_bar.set_postfix(loss=loss)
+                train_bar.update()
+                if i >= self.hparams.num_updates:
+                    break
+
+        # Log the training loss
+        self._update_running_vals({"loss": losses}, prefix="train")
+        LOG_INFO("Average train loss: %.2f", mean(losses))
+
+        # Save the model
+        self.nnet.save_checkpoint(
+            filename=self._get_checkpoint_file(self.interation),
+        )
+
+        # Compare the models
+        # LOG_INFO("Arena comparing")
+        self._arena_compare(self.hparams.opponent_type)
+
+    def _arena_compare(self, opponent_type: Literal["pnet", "random", "uninformed"]):
+        """Arena compare the models."""
+        # Prepare opponents
+        if opponent_type == "pnet":
+            opponent = BlokusNNetWrapper(
+                self.game, self.hparams, BlokusNNet, self.device
             )
-            # log the running values to tensorboard
-            self._log_to_tensorboard(i)
+            opponent.load_checkpoint(filename=self.hparams.temp_model_name)
+        elif opponent_type == "uninformed":
+            opponent = BlokusNNetWrapper(self.game, self.hparams, DumbNet, self.device)
+
+        agent = MCTSPlayer(
+            game=self.game,
+            nn=self.nnet,
+            simulations=self.hparams.num_mcts_sims,
+        )
+        opponents = [
+            MCTSPlayer(
+                game=self.game,
+                nn=opponent,
+                simulations=self.hparams.opponent_strength,
+            )
+            for _ in range(3)
+        ]
+
+        # Create the arena
+        scores, frames = play_match(
+            self.game,
+            [agent] + opponents,
+            permute=False,
+            capture_video=True
+        )
+
+        # Save the video
+        video_fp = self.hparams.video_dir / f"colloseumrl_{self.interation}.mp4"
+        LOG_INFO("Saving video to %s", str(video_fp))
+        print(f"Frames: {len(frames)}")
+        imageio.mimsave(video_fp, frames, fps=1)
+
+        # Log the results
+        players = [f"agent_{self.interation}"] + [f"{opponent_type}_{self.hparams.opponent_strength}"] * 3
+        writer = MarkdownTableWriter(
+            table_name=f"Arena compare {self.interation}",
+            headers=["Player", "Score"],
+            value_matrix=[(p, s) for p, s in zip(players, scores)],
+        )
+
+        writer.write_table()
+
+        # Write to tensorboard
+        self.writer.add_text(
+            f"Arena compare {self.interation}", writer.dumps(), self.interation
+        )
+
+        # Log the results
+        LOG_INFO("Arena compare %s: %s", opponent_type, str(scores))
+
+    def _make_infinite_dataloader(self, train_dl: DataLoader):
+        """Make infinite dataloader."""
+        while True:
+            for batch in train_dl:
+                yield batch
 
     def _get_checkpoint_file(self, iteration: int):
         """Get the checkpoint file name."""
         return "checkpoint_" + str(iteration) + ".pth.tar"
 
-    def _save_train_examples(self, iteration: int):
+    def _get_data_file(self, iteration: int):
+        """Get the data file name."""
+        return "checkpoint_" + str(iteration) + ".examples"
+
+    def _save_train_examples(self, iteration: int, train_examples):
         """Save the train examples to a file."""
         LOG_INFO("Saving train_examples to file after %d iteration", iteration)
-        filename = (
-            self.hparams.checkpoint_dir / self._get_checkpoint_file(iteration)
-        ).with_suffix(".examples")
+        filename = self.hparams.data_dir / self._get_data_file(iteration)
         with open(filename, "wb+") as f:
-            Pickler(f).dump(self.train_examples_history)
+            Pickler(f).dump(train_examples)
 
     def _load_checkpoint(self, iteration: int):
         """Load the checkpoint."""
@@ -300,6 +325,7 @@ class MCTSTrainer:
         # Create the checkpoint and log dir if they don't exist
         self.hparams.checkpoint_dir.mkdir(parents=True, exist_ok=True)
         self.hparams.log_dir.mkdir(parents=True, exist_ok=True)
+        self.hparams.data_dir.mkdir(parents=True, exist_ok=True)
         if self.hparams.capture_video:
             self.hparams.video_dir.mkdir(parents=True, exist_ok=True)
         # Save the hyperparameters
