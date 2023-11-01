@@ -1,147 +1,99 @@
 """Monte Carlo Tree Search implementation."""
-import copy
 import math
 
 import numpy as np
 
-from ..blokus import BlokusGameWrapper, BlokusNNetWrapper
-from ..hparams import MCTSHparams
-from ..utils import LOG_ERROR
-
-EPS = 1e-8
-
 
 class MCTS:
-    """
-    This class handles the MCTS tree.
-    """
-
-    def __init__(self, game: BlokusGameWrapper, nnet: BlokusNNetWrapper, hparams: MCTSHparams):
+    def __init__(self, game, nn):
         self.game = game
-        self.nnet = nnet
-        self.hparams = hparams
-        self._init_store()
+        self.nn = nn
+        self.tree = {}
 
-    def _init_store(self):
-        self.Q_sa = {}  # stores Q values for s,a (as defined in the paper)
-        self.N_sa = {}  # stores #times edge s,a was visited
-        self.N_s = {}  # stores #times board s was visited
-        self.P_s = {}  # stores initial policy (returned by neural net)
-        self.E_s = {}  # stores game.getGameEnded ended for board s
-        self.V_s = {}  # stores game.getValidMoves for board s
+    def simulate(
+        self,
+        s,
+        current_player: int,
+        cpuct: int = 1,
+        epsilon_fix: bool = True,
+    ):
+        """Simulate a game from the current state.
 
-    def get_action_prob(self, canonical_board, temp=1):
-        """
-        This function performs numMCTSSims simulations of MCTS starting from
-        canonicalBoard.
+        Actions are selected according to the upper confidence bound.
+        The tree is expanded as the simulation progresses.
+        Heuristic scores are updated at the end of the simulation.
 
-        Returns:
-            probs: a policy vector where the probability of the ith action is
-                   proportional to Nsa[(s,a)]**(1./temp)
-        """
-        for _ in range(self.hparams.num_mcts_sims):
-            self.search(copy.deepcopy(canonical_board))
-        s = self.game.string_representation(canonical_board)
-        counts = [
-            self.N_sa[(s, a)] if (s, a) in self.N_sa else 0
-            for a in range(self.game.get_action_size())
-        ]
-        if temp == 0:
-            best_as = np.array(np.argwhere(counts == np.max(counts))).flatten()
-            best_a = np.random.choice(best_as)
-            probs = [0] * len(counts)
-            probs[best_a] = 1
-            return probs
-
-        counts = [x ** (1.0 / temp) for x in counts]
-        counts_sum = float(sum(counts))
-        probs = [x / counts_sum for x in counts]
-        return probs
-
-    def search(self, board):
-        """
-        This function performs one iteration of MCTS. It is recursively called
-        till a leaf node is found. The action chosen at each node is one that
-        has the maximum upper confidence bound as in the paper.
-
-        Once a leaf node is found, the neural network is called to return an
-        initial policy P and a value v for the state. This value is propagated
-        up the search path. In case the leaf node is a terminal state, the
-        outcome is propagated up the search path. The values of Ns, Nsa, Qsa are
-        updated.
-
-        NOTE: the return values are the negative of the value of the current
-        state. This is done since v is in [-1,1] and if v is the value of a
-        state for the current player, then its value is -v for the other player.
+        Args:
+            s: The current state.
+            current_player: The current player.
+            terminal: Whether the current state is terminal.
+            winners: The winners of the game.
+            cpuct: The exploration constant.
+            epsilon_fix: Whether to use the epsilon fix.
 
         Returns:
-            v: the negative of the value of the current canonicalBoard
-        """
+            The scores for each player."""
+        # Get hash of state
+        hashed_s = self.game.string_representation(s)
 
-        s = self.game.string_representation(board)
-
-        if s not in self.E_s:
-            self.E_s[s] = self.game.get_game_ended(board, 1)
-        if self.E_s[s] != 0:
-            # terminal node
-            return -self.E_s[s]
-
-        # print(f's not in self.Ps: {s not in self.Ps}')
-        if s not in self.P_s:
-            # leaf node
-            self.P_s[s], v = self.nnet.predict(board.canonical_board.copy())
-            valids = self.game.get_valid_moves(board)
-            self.P_s[s] = self.P_s[s] * valids  # masking invalid moves
-            sum_Ps_s = np.sum(self.P_s[s])
-            if sum_Ps_s > 0:
-                self.P_s[s] /= sum_Ps_s  # renormalize
-            else:
-                # if all valid moves were masked make all valid moves equally probable
-                LOG_ERROR("All valid moves were masked, doing a workaround.")
-                self.P_s[s] = self.P_s[s] + valids
-                self.P_s[s] /= np.sum(self.P_s[s])
-
-            self.V_s[s] = valids
-            self.N_s[s] = 0
-            return -v
-
-        valids = self.V_s[s]
-        cur_best = -float("inf")
-        best_act = -1
-
-        # pick the action with the highest upper confidence bound
-        for a in range(self.game.get_action_size()):
-            if valids[a]:
-                if (s, a) in self.Q_sa:
-                    u = self.Q_sa[(s, a)] + self.hparams.cpuct * self.P_s[s][
-                        a
-                    ] * math.sqrt(self.N_s[s]) / (1 + self.N_sa[(s, a)])
-                else:
-                    u = (
-                        self.hparams.cpuct
-                        * self.P_s[s][a]
-                        * math.sqrt(self.N_s[s] + EPS)
-                    )  # Q = 0 ?
-
-                if u > cur_best:
-                    cur_best = u
-                    best_act = a
-
-        a = best_act
-        next_s, next_player = self.game.get_next_state(board, 1, a)
-        next_s = self.game.get_canonical_form(next_s, next_player)
-
-        v = self.search(next_s)
-
-        if (s, a) in self.Q_sa:
-            self.Q_sa[(s, a)] = (self.N_sa[(s, a)] * self.Q_sa[(s, a)] + v) / (
-                self.N_sa[(s, a)] + 1
+        if hashed_s in self.tree:  # Not at leaf; select.
+            # Select action with highest upper confidence bound.
+            stats = self.tree[hashed_s]
+            N, Q, P = stats[:, 1], stats[:, 2], stats[:, 3]
+            U = cpuct * P * math.sqrt(N.sum() + (1e-6 if epsilon_fix else 0)) / (1 + N)
+            heuristic = Q + U
+            best_a_idx = np.argmax(heuristic)
+            best_a = stats[best_a_idx, 0]  # Pick best action to take
+            s_prime, current_player = self.game.get_next_state(
+                s, current_player, best_a[0]
             )
-            self.N_sa[(s, a)] += 1
+            scores = self.simulate(
+                s_prime, current_player
+            )  # Forward simulate with this action
+            n, q = N[best_a_idx], Q[best_a_idx]
+            v = scores[current_player]  # Index in to find our reward
+            stats[best_a_idx, 2] = (n * q + v) / (n + 1)
+            stats[best_a_idx, 1] += 1
+            return scores
 
-        else:
-            self.Q_sa[(s, a)] = v
-            self.N_sa[(s, a)] = 1
+        else:  # Expand
+            winners = self.game.get_game_ended(s)
+            if winners is not None:
+                return winners
+            available_actions = self.game.get_valid_moves(s, current_player)
+            idx = np.stack(np.where(available_actions)).T
+            obs, mask = self.game.get_observation(s, current_player)
+            p, v = self.nn.predict(obs, mask)
+            stats = np.zeros((len(idx), 4), dtype=np.object_)
+            stats[:, -1] = p
+            stats[:, 0] = list(idx)
+            self.tree[hashed_s] = stats
+            return v
 
-        self.N_s[s] += 1
-        return -v
+    def get_distribution(self, s, temperature):
+        """Get the MCTS policy distribution for a given state.
+
+        Args:
+            s: The state.
+            temperature: The temperature.
+
+        Returns:
+            The MCTS policy distribution."""
+        hashed_s = self.game.string_representation(s)
+        stats = self.tree[hashed_s][:, :2].copy()
+        N = stats[:, 1]
+        try:
+            raised = np.power(N, 1 / temperature)
+        # As temperature approaches 0, the effect becomes equivalent to argmax.
+        except (ZeroDivisionError, OverflowError):
+            raised = np.zeros_like(N)
+            raised[N.argmax()] = 1
+
+        total = raised.sum()
+        # If all children are unexplored, prior is uniform.
+        if total == 0:
+            raised[:] = 1
+            total = raised.sum()
+        dist = raised / total
+        stats[:, 1] = dist
+        return stats
