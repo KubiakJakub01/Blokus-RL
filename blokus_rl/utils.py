@@ -52,7 +52,10 @@ def seed(seed_number: int):
 
 def set_environ(hparams: HParams):
     """Set environment variables."""
-    logger.setLevel(hparams.log_level)
+    if hparams.verbose:
+        logger.setLevel(logging.DEBUG)
+    else:
+        logger.setLevel(logging.INFO)
     torch.autograd.set_detect_anomaly(hparams.detect_anomaly)
 
 
@@ -94,3 +97,12 @@ class AverageMeter:
 class dotdict(dict):
     def __getattr__(self, name):
         return self[name]
+
+
+def to_device(x, device):
+    """Move tensor to device."""
+    if isinstance(x, dict):
+        return {k: to_device(v, device) for k, v in x.items()}
+    elif isinstance(x, list):
+        return [to_device(v, device) for v in x]
+    return x.to(device)

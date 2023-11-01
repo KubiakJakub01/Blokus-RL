@@ -138,7 +138,6 @@ class BlokusNNetWrapper:
                 batch_count = int(len(examples) / self.hparams.batch_size)
 
                 for _ in range(batch_count):
-
                     # sample batch
                     sample_ids = np.random.randint(
                         len(examples), size=self.hparams.batch_size

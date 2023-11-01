@@ -16,6 +16,9 @@ class HParams:
         default=Path("models/checkpoints"),
         metadata={"help": "Directory to save checkpoints"},
     )
+    data_dir: Path = field(
+        default=Path("data"), metadata={"help": "Directory to save data"}
+    )
     load_checkpoint_step: int | None = field(
         default=None,
         metadata={
@@ -32,12 +35,6 @@ class HParams:
     experiment_name: str = field(
         default="blokus", metadata={"help": "Name of the experiment"}
     )
-    num_workers: int = field(
-        default=-1,
-        metadata={
-            "help": "Number of parallel workers. Set to -1 to use all available CPUs"
-        },
-    )
     cuda: bool = field(default=True, metadata={"help": "Whether to use CUDA"})
     seed: int = field(default=42, metadata={"help": "Seed for the experiment"})
     wanda: bool = field(default=False, metadata={"help": "Whether to use wandb"})
@@ -46,9 +43,6 @@ class HParams:
     )
     capture_video: bool = field(
         default=False, metadata={"help": "Whether to capture video"}
-    )
-    log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR"] = field(
-        default="INFO", metadata={"help": "Logging level for the experiment"}
     )
     log_interval: int = field(
         default=5, metadata={"help": "Number of updates between logging"}
@@ -186,9 +180,9 @@ class MCTSHparams(HParams):
     """Hyperparameters for MCTS."""
 
     # Board parameters
-    board_size: int = field(default=7, metadata={"help": "Size of the board"})
+    board_size: int = field(default=20, metadata={"help": "Size of the board"})
     number_of_players: int = field(
-        default=2, metadata={"help": "Number of players in the game"}
+        default=4, metadata={"help": "Number of players in the game"}
     )
     states_dir: Path = field(
         default=Path("states"), metadata={"help": "Dir for blokus game states"}
@@ -201,6 +195,8 @@ class MCTSHparams(HParams):
     batch_size: int = field(default=64, metadata={"help": "Batch size"})
     num_channels: int = field(default=128, metadata={"help": "Number of channels"})
     linear_dim: int = field(default=128, metadata={"help": "Linear layer dimension"})
+    num_updates: int = field(default=1000, metadata={"help": "Number of updates"})
+    weight_decay: float = field(default=1e-4, metadata={"help": "Weight decay"})
 
     # Training parameters
     num_iters: int = field(default=1000, metadata={"help": "Number of iterations"})
@@ -213,13 +209,21 @@ class MCTSHparams(HParams):
     num_mcts_sims: int = field(
         default=25, metadata={"help": "Number of MCTS simulations"}
     )
-    arena_compare: int = field(
-        default=40, metadata={"help": "Number of arena comparisons"}
+    compare_arena_games: int = field(
+        default=24, metadata={"help": "Number of games to play in the compare arena"}
+    )
+    permute: bool = field(
+        default=True,
+        metadata={"help": "Whether to permute players in the compare arena"},
     )
     cpuct: int = field(default=1, metadata={"help": "CPUCT"})
     elo_convert_rate: int = field(
         default=20, metadata={"help": "Elo convert rate for elo calculation"}
     )
+    buffer_size_limit: int = field(
+        default=10000, metadata={"help": "Buffer size limit"}
+    )
+    temperature: float = field(default=1.0, metadata={"help": "Temperature"})
 
     # Checkpoint parameters
     best_model_name: str = field(
@@ -233,11 +237,16 @@ class MCTSHparams(HParams):
     )
 
     # Evaluation parameters
-    player_1: str = field(
-        default="random", metadata={"help": "Type of player 1 (random or checkpoint)"}
+    arena_players: list[str] = field(
+        default_factory=lambda: ["checkpoint", "random", "uninformed"],
+        metadata={"help": "Players to use in the arena"},
     )
-    player_2: str = field(
-        default="random", metadata={"help": "Type of player 2 (random or checkpoint)"}
+    opponent_strength: int = field(
+        default=20, metadata={"help": "Strength of the opponent"}
+    )
+    opponent_type: Literal["pnet", "random", "uninformed"] = field(
+        default="uninformed",
+        metadata={"help": "Type of the opponent (random or checkpoint)"},
     )
 
 

@@ -2,9 +2,9 @@
 import argparse
 from pathlib import Path
 
+from .alphazero.trainer import AlphaZeroTrainer
 from .hparams import load_hparams
 from .ppo import PPOTrainer
-from .mcts import MCTSTrainer
 from .utils import LOG_INFO, seed, set_environ
 
 
@@ -32,7 +32,7 @@ def train_agent(algo: str, hparams):
     if algo == "ppo":
         trainer = PPOTrainer(hparams)  # type: ignore
     elif algo == "mcts":
-        trainer = MCTSTrainer(hparams)  # type: ignore
+        trainer = AlphaZeroTrainer(hparams)  # type: ignore
     trainer.train()
 
 

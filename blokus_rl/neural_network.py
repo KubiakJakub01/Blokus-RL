@@ -5,9 +5,15 @@ from .colossumrl import ColosseumBlokusGameWrapper
 from .hparams import MCTSHparams
 from .utils import LOG_INFO, AverageMeter, to_device
 
-class BlokusNNetWrapper():
 
-    def __init__(self, game: ColosseumBlokusGameWrapper, hparams: MCTSHparams, model, device: str = "cpu"):
+class BlokusNNetWrapper:
+    def __init__(
+        self,
+        game: ColosseumBlokusGameWrapper,
+        hparams: MCTSHparams,
+        model,
+        device: str = "cpu",
+    ):
         self.game = game
         self.hparams = hparams
         self.device = device
@@ -19,17 +25,18 @@ class BlokusNNetWrapper():
             self.optimizer = torch.optim.Adam(
                 self.model.parameters(),
                 lr=self.hparams.lr,
-                weight_decay=self.hparams.weight_decay)
+                weight_decay=self.hparams.weight_decay,
+            )
 
     def train_step(self, batch):
         """Train the model for one step.
-        
+
         Args:
             batch: A batch of data.
-        
+
         Returns:
             The loss."""
-        
+
         # Set model to training mode
         self.model.train()
 
@@ -37,10 +44,10 @@ class BlokusNNetWrapper():
         batch = to_device(batch, self.device)
 
         # Get data from batch
-        obs = batch['observation']
-        masks = batch['mask']
-        p_gt = batch['prob']
-        v_gt = batch['score']
+        obs = batch["observation"]
+        masks = batch["mask"]
+        p_gt = batch["prob"]
+        v_gt = batch["score"]
 
         # Forward pass
         p_pred, v_pred = self.model(obs)
@@ -77,22 +84,25 @@ class BlokusNNetWrapper():
             p_logits, v = self.model(x)
             mask = torch.from_numpy(mask).bool().to(self.device)
             # EXP because log softmax
-            p, v = self.get_valid_dist(mask, p_logits[0]).cpu().numpy().squeeze(), v.cpu().numpy().squeeze()
+            p, v = (
+                self.get_valid_dist(mask, p_logits[0]).cpu().numpy().squeeze(),
+                v.cpu().numpy().squeeze(),
+            )
         return p, v
 
     def loss(self, masks, prediction, target):
         """Compute the loss.
-        
+
         Args:
             masks: The mask of valid actions.
             prediction: The prediction.
             target: The target.
-        
+
         Returns:
             The loss."""
         p_pred, v_pred = prediction
         p_gt, v_gt = target
-        v_loss = ((v_pred - v_gt)**2).sum()  # Mean squared error
+        v_loss = ((v_pred - v_gt) ** 2).sum()  # Mean squared error
         p_loss = 0
         # TODO: Make sure if loop here is necessary
         for mask, gt, logits in zip(masks, p_gt, p_pred):
@@ -107,7 +117,7 @@ class BlokusNNetWrapper():
             mask: The mask of valid actions.
             logits: The logits.
             log_softmax: Whether to return the log softmax.
-        
+
         Returns:
             The valid distribution."""
         selection = torch.masked_select(logits, mask)
@@ -120,7 +130,16 @@ class BlokusNNetWrapper():
         """Save the model."""
         model_path = self.hparams.checkpoint_dir / filename
         LOG_INFO("Saving checkpoint to: %s", model_path)
-        torch.save({"nnet": self.model.state_dict(), "elo": self.elo}, model_path)
+        torch.save(
+            {
+                "nnet": self.model.state_dict(),
+                "optimizer": self.optimizer.state_dict(),
+                "mean_loss": self.mean_loss.avg,
+                "latest_loss": self.latest_loss,
+                "elo": self.elo,
+            },
+            model_path,
+        )
 
     def load_checkpoint(self, filename: str = "checkpoint.pth.tar"):
         """Load the model."""
@@ -129,4 +148,7 @@ class BlokusNNetWrapper():
         assert model_path.exists(), f"Model path doesn't exist {model_path}"
         checkpoint = torch.load(model_path, map_location=self.device)
         self.model.load_state_dict(checkpoint["nnet"])
+        self.optimizer.load_state_dict(checkpoint["optimizer"])
+        self.mean_loss.update(checkpoint["mean_loss"])
+        self.latest_loss = checkpoint["latest_loss"]
         self.elo = checkpoint["elo"]
