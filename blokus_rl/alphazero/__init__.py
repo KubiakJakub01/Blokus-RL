@@ -1,3 +1,3 @@
-from .arena import Arena
+from .arena import play_match
 from .mcts import MCTS
-from .trainer import MCTSTrainer
+from .dataset import MCTSDataset
