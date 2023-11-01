@@ -1,5 +1,9 @@
+[build-system]
+requires = ["setuptools", "wheel"]
+build-backend = "setuptools.build_meta"
+
 [project]
-name = "blokus_rl"
+name = "blokus-rl"
 description = "Reinforcement learning for blokus game"
 readme = "README.md"
 version = "0.0.0"
@@ -8,6 +12,7 @@ authors = [
 ]
 requires-python = ">=3.10"
 dependencies = [
+    "colosseumrl@git+https://github.com/KubiakJakub01/colosseumrl#egg=master",
     "coloredlogs==15.0.1",
     "Cython==3.0.3",
     "gymnasium==0.29.1",
@@ -29,6 +34,9 @@ classifiers = [
     "Topic :: Games/Entertainment :: Board Games"
 ]
 
+[tool.setuptools.package-dir]
+blokus_rl = "blokus_rl"
+
 [tool.pylint]
 max-line-length = 120
 disable = [
@@ -45,9 +53,3 @@ disable = [
     "too-few-public-methods"
 ]
 generated-members=["numpy.*","torch.*"]
-
-[tool.setuptools]
-py-modules = []
-
-[build-system]
-requires = ["setuptools", "wheel", "Cython"]
