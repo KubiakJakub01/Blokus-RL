@@ -9,3 +9,4 @@ optuna.db
 **/*.so
 build/
 *.egg-info
+data/*
