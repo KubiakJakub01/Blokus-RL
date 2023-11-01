@@ -1,11 +1,10 @@
 """Module with the Arena class for playing games between players."""
 from itertools import permutations
 
-import imageio
 import numpy as np
 from tqdm import tqdm
 
-from ..utils import LOG_INFO, LOG_DEBUG
+from ..utils import LOG_DEBUG
 
 
 def play_match(
@@ -38,7 +37,7 @@ def play_match(
     )
 
     # Initialize scoreboard
-    frames_list = []
+    items = []
     scores = np.zeros(game.get_number_of_players())
 
     # Run the matches (there will be multiple if permute=True)
@@ -52,7 +51,7 @@ def play_match(
             game, players, order, verbose, capture_video
         )
         scores[list(order)] += current_scores
-        frames_list.append(frames)
+        items.append({"scores": current_scores, "frames": frames})
 
         pbar.set_postfix(scores=scores)
         pbar.update()
@@ -61,7 +60,7 @@ def play_match(
     if verbose:
         LOG_DEBUG("Final scores: %s", str(scores))
 
-    return scores, frames_list
+    return scores, items
 
 
 def play_single_match(game, players, order, verbose, capture_video):
@@ -86,41 +85,3 @@ def play_single_match(game, players, order, verbose, capture_video):
         current_scores = game.get_game_ended(s)
 
     return current_scores, frames
-
-
-if __name__ == "__main__":
-    from ..colossumrl import BlokusNNet, ColosseumBlokusGameWrapper
-    from ..hparams import MCTSHparams
-    from ..models import DumbNet
-    from ..neural_network import BlokusNNetWrapper
-    from ..players import MCTSPlayer
-
-    hparams = MCTSHparams()
-    game = ColosseumBlokusGameWrapper(hparams)
-    opponent_sims = 20
-    # device = "cuda" if hparams.cuda else "cpu"
-    device = "cpu"
-    print(f"Using device: {device}")
-    uninformeds = [
-        MCTSPlayer(
-            game=game,
-            nn=BlokusNNetWrapper(game, hparams, DumbNet, device),
-            simulations=opponent_sims,
-        )
-        for _ in range(3)
-    ]
-    agent = MCTSPlayer(
-        game=game,
-        nn=BlokusNNetWrapper(game, hparams, BlokusNNet, device),
-        simulations=hparams.num_mcts_sims,
-    )
-    scores, frames = play_match(
-        game, [agent] + uninformeds, permute=False, verbose=False, capture_video=True
-    )
-    print(f"Opponent strength: {opponent_sims}\nScores: {scores}")
-
-    # Save the video
-    video_fp = hparams.video_dir / f"colloseumrl_debug.mp4"
-    print("Saving video to %s", str(video_fp))
-    print(f"Frames: {len(frames)}")
-    imageio.mimsave(video_fp, frames, fps=1)
