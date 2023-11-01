@@ -12,9 +12,10 @@ class DumbNet(nn.Module):
         self.v_shape = game.get_number_of_players()
 
     def forward(self, x):
+        device = x.device
         batch_size = x.shape[0]
 
-        p_logits = torch.ones((batch_size, self.p_shape))
-        v = torch.zeros((batch_size, self.v_shape))
+        p_logits = torch.ones((batch_size, self.p_shape)).to(device)
+        v = torch.zeros((batch_size, self.v_shape)).to(device)
 
         return p_logits, v
