@@ -21,7 +21,7 @@ def play_match(
         game: The game to play.
         players: A list of players.
         games_num: The number of games to play.
-        verbose: Whether to print information about the game.
+        verbose: Whether to LOG_DEBUG information about the game.
         permute: Whether to permute the order of players.
         capture_video: Whether to capture a video of the game.
 
@@ -33,7 +33,7 @@ def play_match(
     matches = (
         list(permutations(np.arange(len(players))))
         if permute
-        else [np.arange(len(players))]
+        else list(np.arange(len(players)))
     )
 
     # Initialize scoreboard
@@ -74,10 +74,9 @@ def play_single_match(game, players, order, verbose, capture_video):
     while current_scores is None:
         p = order[current_player]
         if verbose:
-            print("Player #{}'s turn.".format(p))
-            print("Current player: {}".format(current_player))
-            print("Current state:")
-            print(game.display(s))
+            LOG_DEBUG("Current player: %s", str(current_player))
+            LOG_DEBUG("Current state:")
+            LOG_DEBUG(game.display(s))
         s, current_player = players[p].update_state(s, current_player)
 
         if capture_video:

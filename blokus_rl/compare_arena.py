@@ -40,10 +40,7 @@ def init_player(
 
     Returns:
         A function that takes a board as input and returns an action."""
-    if player == "random":
-        raise NotImplementedError("Random player not implemented")
-
-    elif Path(player).exists():
+    if Path(player).exists():
         nnet = BlokusNNetWrapper(game, hparams, BlokusNNet, device)
         nnet.load_checkpoint(player)
         return MCTSPlayer(
@@ -51,14 +48,20 @@ def init_player(
             nn=nnet,
             simulations=hparams.num_mcts_sims,
         )
-    
-    elif player == "uninformed":
+
+    if player == "uninformed":
         nnet = BlokusNNetWrapper(game, hparams, DumbNet, device)
         return MCTSPlayer(
             game=game,
             nn=nnet,
             simulations=hparams.opponent_strength,
         )
+
+    if player == "random":
+        raise NotImplementedError("Random player not implemented")
+
+    if player == "human":
+        raise NotImplementedError("Human player not implemented")
 
     raise ValueError(f"Unknown player: {player}")
 
@@ -100,7 +103,7 @@ def main():
         players,
         games_num=hparams.compare_arena_games,
         permute=hparams.permute,
-        capture_video=hparams.capture_video
+        capture_video=hparams.capture_video,
     )
 
     # Print results

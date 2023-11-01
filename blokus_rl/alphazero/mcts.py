@@ -56,19 +56,19 @@ class MCTS:
             stats[best_a_idx, 1] += 1
             return scores
 
-        else:  # Expand
-            winners = self.game.get_game_ended(s)
-            if winners is not None:
-                return winners
-            available_actions = self.game.get_valid_moves(s, current_player)
-            idx = np.stack(np.where(available_actions)).T
-            obs, mask = self.game.get_observation(s, current_player)
-            p, v = self.nn.predict(obs, mask)
-            stats = np.zeros((len(idx), 4), dtype=np.object_)
-            stats[:, -1] = p
-            stats[:, 0] = list(idx)
-            self.tree[hashed_s] = stats
-            return v
+        # Expand
+        winners = self.game.get_game_ended(s)
+        if winners is not None:
+            return winners
+        available_actions = self.game.get_valid_moves(s, current_player)
+        idx = np.stack(np.where(available_actions)).T
+        obs, mask = self.game.get_observation(s, current_player)
+        p, v = self.nn.predict(obs, mask)
+        stats = np.zeros((len(idx), 4), dtype=np.object_)
+        stats[:, -1] = p
+        stats[:, 0] = list(idx)
+        self.tree[hashed_s] = stats
+        return v
 
     def get_distribution(self, s, temperature):
         """Get the MCTS policy distribution for a given state.

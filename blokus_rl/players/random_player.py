@@ -1,6 +1,4 @@
 """Module with random player class."""
-import numpy as np
-
 from .player import Player
 
 
@@ -10,14 +8,15 @@ class RandomPlayer(Player):
     def __init__(self, game):
         self.game = game
 
-    def update_state(self, s, current_player, terminal, winners):
+    def update_state(self, s, current_player):
         """Update the state of the player."""
-        a = np.random.choice(self.game.get_legal_actions(s, current_player))
-        s_prime, current_player, terminal, winners = self.game.get_next_state(
-            s, current_player, a
-        )
-        return s_prime, current_player, terminal, winners
+        a = self.game.get_sample_move(s)
+        (
+            s_prime,
+            current_player,
+        ) = self.game.get_next_state(s, current_player, a)
+        return s_prime, current_player
 
     def reset(self):
         """Reset the player."""
-        pass
+        return

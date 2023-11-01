@@ -1,14 +1,14 @@
 import torch
-import torch.nn as nn
 import torch.nn.functional as F
+from torch import nn
 
-from ..hparams import MCTSHparams
 from ..colossumrl import ColosseumBlokusGameWrapper
+from ..hparams import MCTSHparams
 
 
 class BlokusNNet(nn.Module):
     def __init__(self, game: ColosseumBlokusGameWrapper, hparams: MCTSHparams):
-        super(BlokusNNet, self).__init__()
+        super().__init__()
         # game params
         self.hparams = hparams
         self.board_x, self.board_y = game.get_board_size()  # 20, 20

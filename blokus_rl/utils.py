@@ -103,6 +103,6 @@ def to_device(x, device):
     """Move tensor to device."""
     if isinstance(x, dict):
         return {k: to_device(v, device) for k, v in x.items()}
-    elif isinstance(x, list):
+    if isinstance(x, list):
         return [to_device(v, device) for v in x]
     return x.to(device)

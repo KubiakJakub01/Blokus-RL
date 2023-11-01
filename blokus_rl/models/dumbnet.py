@@ -1,13 +1,13 @@
 """DumbNet class."""
 import torch
-import torch.nn as nn
+from torch import nn
 
 
 class DumbNet(nn.Module):
     """DumbNet class."""
 
-    def __init__(self, game, hparams):
-        super(DumbNet, self).__init__()
+    def __init__(self, game, hparams):  # pylint: disable=unused-argument
+        super().__init__()
         self.p_shape = game.get_action_size()
         self.v_shape = game.get_number_of_players()
 

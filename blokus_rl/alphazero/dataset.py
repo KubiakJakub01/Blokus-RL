@@ -1,5 +1,4 @@
 """Module with dataset classes for MCTS"""
-from pathlib import Path
 from pickle import Unpickler
 
 import torch

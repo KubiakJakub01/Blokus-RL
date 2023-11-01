@@ -104,7 +104,6 @@ class BlokusNNetWrapper:
         p_gt, v_gt = target
         v_loss = ((v_pred - v_gt) ** 2).sum()  # Mean squared error
         p_loss = 0
-        # TODO: Make sure if loop here is necessary
         for mask, gt, logits in zip(masks, p_gt, p_pred):
             pred = self.get_valid_dist(mask, logits, log_softmax=True)
             p_loss += -torch.sum(gt * pred)

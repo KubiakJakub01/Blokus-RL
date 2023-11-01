@@ -17,7 +17,7 @@ from ..hparams import MCTSHparams
 from ..models import BlokusNNet
 from ..neural_network import BlokusNNetWrapper
 from ..players import MCTSPlayer
-from ..utils import LOG_DEBUG, LOG_INFO, LOG_WARNING
+from ..utils import LOG_INFO, LOG_WARNING
 from .arena import play_match
 from .dataset import MCTSDataset
 from .mcts import MCTS
@@ -45,9 +45,10 @@ class AlphaZeroTrainer:
 
         # Agent and opponent neural nets with monte carlo tree search
         self.nnet = BlokusNNetWrapper(self.game, self.hparams, BlokusNNet, self.device)
+        self.pnet: BlokusNNetWrapper
 
         # Can be overriden in load_checkpoint()
-        self.training_data = []
+        self.training_data: list = []
         self.interation = 0
         if self.hparams.load_checkpoint_step is not None:
             LOG_INFO("Starting from checkpoint %d", self.hparams.load_checkpoint_step)
@@ -158,13 +159,13 @@ class AlphaZeroTrainer:
 
         # Compare the models
         LOG_INFO("Arena comparing")
-        scores, score_table, arena_items = self._arena_compare(self.hparams.opponent_type)
+        scores, score_table, arena_items = self._arena_compare(
+            self.hparams.opponent_type
+        )
 
         # Update the elo
         old_elo = self.nnet.elo
-        self.nnet.elo = self._compute_new_elo(
-            self.nnet.elo, self.pnet.elo, scores[0]
-        )
+        self.nnet.elo = self._compute_new_elo(self.nnet.elo, self.pnet.elo, scores[0])
 
         # Log the elo
         LOG_INFO("Agent elo: %.2f -> %.2f", old_elo, self.nnet.elo)
@@ -235,7 +236,7 @@ class AlphaZeroTrainer:
         writer = MarkdownTableWriter(
             table_name=f"Arena compare {self.interation}",
             headers=["Player", "Score"],
-            value_matrix=[(p, s) for p, s in zip(players, scores)],
+            value_matrix=list(zip(players, scores)),
         )
 
         # Return the table and the video

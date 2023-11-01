@@ -73,7 +73,7 @@ class ColosseumBlokusGameWrapper:
     def get_init_board(self):
         """
         Returns:
-            blokus_game: a BlokusGame object
+            state: tuple of (board, round_count, players)
             player: the player who plays next
         """
         current_state, current_players = self.env.new_state()
@@ -84,7 +84,7 @@ class ColosseumBlokusGameWrapper:
     ) -> tuple[Any, int]:
         """
         Args:
-            blokus_game: blokus game object
+            current_state: tuple of (board, round_count, players)
             player: current player index
             action: action taken by current player
 
@@ -98,10 +98,11 @@ class ColosseumBlokusGameWrapper:
         )
         return next_state, next_players[0]
 
-    def get_valid_moves(self, current_state: Any, current_player: int) -> list[int]:
+    def get_valid_moves(self, current_state: Any, current_player: int):
         """
         Args:
-            blokus_game: blokus game object
+            current_state: tuple of (board, round_count, players)
+            player: current player index
 
         Returns:
             mask: a binary vector of length self.get_action_size(), 1 for
@@ -119,24 +120,15 @@ class ColosseumBlokusGameWrapper:
             # If there are no valid actions then return a mask of all 0s
             return mask
         for action in valid_actions:
-            # Get the index of the action if it is in the list of all possible actions
-            if action not in self._move_action_dict:
-                print(f"Action {action} not in self._move_action_dict")
-                print(f"valid_actions: {valid_actions}")
-                winner = self.get_game_ended(current_state)
-                print(f"winner: {winner}")
-                print(f"{current_player=}")
-                print(f"state hash: {self.string_representation(current_state)}")
-
             action_id = self._move_action_dict[action]
             mask[action_id] = 1
         return mask
 
-    def get_observation(self, state: Any, player: int) -> np.ndarray:
+    def get_observation(self, state: Any, player: int) -> tuple[np.ndarray, np.ndarray]:
         """Convert the state to an observation.
 
         Args:
-            state: The state of the game
+            state: tuple of (board, round_count, players)
             player: The player to convert the observation for
 
         Returns:
@@ -149,14 +141,11 @@ class ColosseumBlokusGameWrapper:
     def get_game_ended(self, state):
         """
         Args:
-            blokus_game: blokus game object
-            player: current player index
-            verbose: whether to print the winner
+            current_state: tuple of (board, round_count, players)
 
         Returns:
-            r: 0 if game has not ended. 1 if player won, -1 if player lost,
-               small non-zero value for draw.
-
+            winner: 1 if player 1 won, -1 if player -1 won, 0 if draw, None if
+                    game is not over
         """
         winners = self.env.get_winners(state)
         # Make one hot vector of winners
@@ -193,40 +182,10 @@ class ColosseumBlokusGameWrapper:
                 scores[winner] = 0
         return scores
 
-    def get_canonical_form(self, state: Any, player: int) -> Any:
+    def string_representation(self, state: Any) -> int:
         """
         Args:
-            blokus_game: blokus game object
-            player: current player index
-
-        Returns:
-            canonicalBoard: returns canonical form of board. The canonical form
-                            should be independent of player. For e.g. in chess,
-                            the canonical form can be chosen to be from the pov
-                            of white. When the player is white, we can return
-                            board as is. When the player is black, we can invert
-                            the colors and return the board.
-        """
-        return state
-
-    def get_symmetries(self, state: Any, pi: list[int]) -> list[tuple[Any, list[int]]]:
-        """
-        Args:
-            blokus_game: blokus game object
-            pi: policy vector of size self.get_action_size()
-
-        Returns:
-            symmForms: a list of [(board,pi)] where each tuple is a symmetrical
-                       form of the board and the corresponding pi vector. This
-                       is used when training the neural network from examples.
-        """
-        board, *_ = state
-        return [(board.canonical_board, pi)]
-
-    def string_representation(self, state: Any) -> str:
-        """
-        Args:
-            blokus_game: blokus game object
+            state: tuple of (board, round_count, players)
 
         Returns:
             board_string: a quick conversion of board to a string format.
@@ -235,24 +194,12 @@ class ColosseumBlokusGameWrapper:
         board = state[0]
         return hash(board.board_contents.tobytes())
 
-    def sample_move(self, blokus_game: Any):
-        """
-        Get a random move.
-
-        Args:
-            blokus_game: blokus game object
-
-        Returns:
-            move: a random move
-        """
-        pass
-
-    def display(self, state: Any, mode: str = "tensor") -> None:
+    def display(self, state: Any) -> None:
         """
         Display the current board.
 
         Args:
-            blokus_game: blokus game object
+            state: tuple of (board, round_count, players)
 
         Returns:
             None
@@ -260,24 +207,26 @@ class ColosseumBlokusGameWrapper:
         board = state[0]
         print(board.board_contents)
 
-    def sample_move(self, state: Any):
+    def get_sample_move(self, state: Any):
         """
         Get a random move.
 
         Args:
-            blokus_game: blokus game object
+            state: tuple of (board, round_count, players)
 
         Returns:
             move: a random move
         """
-        pass
+        players = state[-1]
+        valid_actions = self.env.valid_actions(state, players[0])
+        return np.random.choice(valid_actions)
 
     def render(self, state: Any):
         """
         Render the current board.
 
         Args:
-            blokus_game: blokus game object
+            state: tuple of (board, round_count, players)
         """
         board = state[0]
         fig, ax = plt.subplots()
@@ -299,7 +248,7 @@ class ColosseumBlokusGameWrapper:
 
         # Render the image and convert it to a NumPy array
         fig.canvas.draw()
-        image_data = np.frombuffer(fig.canvas.tostring_rgb(), dtype=np.uint8)
+        image_data = np.frombuffer(fig.canvas.tostring_rgb(), dtype=np.uint8)  # type: ignore
         image_data = image_data.reshape(fig.canvas.get_width_height()[::-1] + (3,))
         plt.close(fig)  # Close the figure to free up resources
 
