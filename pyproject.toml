@@ -22,6 +22,7 @@ dependencies = [
     "mypy==1.6.1",
     "numpy==1.25.2",
     "optuna==3.4.0",
+    "ray==2.8.0",
     "pycodestyle==2.11.1",
     "pylint==3.0.1",
     "pytablewriter==1.2.0",
