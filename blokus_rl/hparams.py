@@ -70,6 +70,8 @@ class HParams:
         self.checkpoint_dir = Path(self.checkpoint_dir)
         self.video_dir = Path(self.video_dir)
         self.log_dir = Path(self.log_dir)
+        self.data_dir = Path(self.data_dir)
+        self.val_data_dir = Path(self.val_data_dir)
 
     def dump_to_yaml(self, hparam_fp: Path) -> None:
         """Save hyperparameters to a YAML file."""

@@ -1,3 +1,4 @@
+import time
 from collections import defaultdict
 from pickle import Pickler
 from statistics import mean
@@ -5,6 +6,7 @@ from typing import Any, Literal
 
 import imageio
 import numpy as np
+import ray
 import torch
 from pytablewriter import MarkdownTableWriter
 from torch import Tensor
@@ -78,23 +80,24 @@ class AlphaZeroTrainer:
             self.interation += 1
             self._run_iteration()
 
-    # Does one game of self play and generates training samples.
-    def _self_play(self, temperature):
-        s, current_player = self.game.get_init_board()
-        tree = MCTS(self.game, self.nnet)
+    @staticmethod
+    @ray.remote(num_gpus=1, num_cpus=2)
+    def _self_play(game, hparams, nnet):
+        s, current_player = game.get_init_board()
+        tree = MCTS(game, nnet)
 
         data = []
-        scores = self.game.get_game_ended(s)
+        scores = game.get_game_ended(s)
         root = True
         alpha = 1
         weight = 0.25
         while scores is None:
             # Think
-            for _ in range(self.hparams.num_mcts_sims):
-                tree.simulate(s, current_player, cpuct=self.hparams.cpuct)
+            for _ in range(hparams.num_mcts_sims):
+                tree.simulate(s, current_player, cpuct=hparams.cpuct)
 
             # Fetch action distribution and append training example template.
-            dist = tree.get_distribution(s, temperature=temperature)
+            dist = tree.get_distribution(s, temperature=hparams.temperature)
 
             # Add dirichlet noise to root
             if root:
@@ -104,7 +107,7 @@ class AlphaZeroTrainer:
                 dist[:, 1] = dist[:, 1] * (1 - weight) + noise * weight
                 root = False
 
-            obs, mask = self.game.get_observation(s, current_player)
+            obs, mask = game.get_observation(s, current_player)
             data.append(
                 [obs, mask, dist[:, 1].astype(np.float32), None]
             )  # state, prob, outcome
@@ -114,10 +117,10 @@ class AlphaZeroTrainer:
             a = dist[idx, 0][0]
 
             # Apply action
-            s, current_player = self.game.get_next_state(s, current_player, a)
+            s, current_player = game.get_next_state(s, current_player, a)
 
             # Get scores
-            scores = self.game.get_game_ended(s)
+            scores = game.get_game_ended(s)
 
         # Update training examples with outcome
         for i, _ in enumerate(data):
@@ -132,11 +135,27 @@ class AlphaZeroTrainer:
 
         Iteration consists of self-play, training, and arena compare."""
 
-        # Gather training examples from self-play
+        start = time.time()
         new_train_data_list = []
-        for _ in tqdm(range(self.hparams.num_eps), desc="Self play"):
-            new_train_data = self._self_play(self.hparams.temperature)
-            new_train_data_list.extend(new_train_data)
+
+        # Gather training examples from self-play
+        num_workers = 2
+        ray.init(num_gpus=1, num_cpus=num_workers)
+        new_train_data_list = []
+        futures = [
+            self._self_play.remote(self.game, self.hparams, self.nnet)
+            for _ in range(self.hparams.num_eps)
+        ]
+        new_train_data_list.extend(ray.get(futures))
+        print(len(new_train_data_list))
+        print(time.time() - start)
+
+        ray.shutdown()
+
+        raise
+        # for _ in tqdm(range(self.hparams.num_eps), desc="Self play"):
+        #     new_train_data = self._self_play(self.game, self.hparams, self.nnet)
+        #     new_train_data_list.extend(new_train_data)
 
         # Save the training examples
         self._save_train_examples(self.interation, new_train_data_list)
