@@ -17,7 +17,10 @@ class HParams:
         metadata={"help": "Directory to save checkpoints"},
     )
     data_dir: Path = field(
-        default=Path("data"), metadata={"help": "Directory to save data"}
+        default=Path("data/train"), metadata={"help": "Directory to save data"}
+    )
+    val_data_dir: Path = field(
+        default=Path("data/valid"), metadata={"help": "Directory to save validation data"}
     )
     load_checkpoint_step: int | None = field(
         default=None,
@@ -189,6 +192,12 @@ class MCTSHparams(HParams):
     )
 
     # Model parameters
+    model_type: Literal["dumbnet", "dcnnet", "resnet"] = field(
+        default="resnet", metadata={"help": "Type of model to use"}
+    )
+    num_res_blocks: int = field(
+        default=5, metadata={"help": "Number of residual blocks"}
+    )
     lr: float = field(default=0.001, metadata={"help": "Learning rate"})
     dropout: float = field(default=0.3, metadata={"help": "Dropout probability"})
     epochs: int = field(default=10, metadata={"help": "Number of epochs"})

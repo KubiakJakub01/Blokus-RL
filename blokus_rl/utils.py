@@ -75,6 +75,11 @@ def make_envs(idx, hparams: HParams):
     return _make_env
 
 
+def calculate_n_parameters(model):
+    """Calculate the number of parameters in a model."""
+    return sum(p.numel() for p in model.parameters() if p.requires_grad)
+
+
 class AverageMeter:
     """From https://github.com/pytorch/examples/blob/master/imagenet/main.py"""
 

@@ -8,7 +8,7 @@ import torch
 
 from .colossumrl import ColosseumBlokusGameWrapper
 from .hparams import MCTSHparams, load_hparams
-from .models import BlokusNNet, DumbNet
+from .models import DCNNet, DumbNet
 from .neural_network import BlokusNNetWrapper
 from .players import MCTSPlayer
 from .utils import LOG_INFO, set_environ
@@ -41,7 +41,7 @@ def init_player(
     Returns:
         A function that takes a board as input and returns an action."""
     if Path(player).exists():
-        nnet = BlokusNNetWrapper(game, hparams, BlokusNNet, device)
+        nnet = BlokusNNetWrapper(game, hparams, DCNNet, device)
         nnet.load_checkpoint(player)
         return MCTSPlayer(
             game=game,

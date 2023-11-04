@@ -62,6 +62,13 @@ class ColosseumBlokusGameWrapper:
             number of all possible actions
         """
         return len(self.action_move_dict)
+    
+    def get_observation_size(self) -> int:
+        """
+        Returns:
+            number of all possible actions
+        """
+        return [self.number_of_players * 2, self.board_size, self.board_size]
 
     def get_number_of_players(self) -> int:
         """
@@ -154,11 +161,11 @@ class ColosseumBlokusGameWrapper:
             one_hot_winners = np.ones(self.number_of_players) * -1
             if len(winners) == 1:
                 # If there is only one winner
-                one_hot_winners[winners[0]] = 1
+                one_hot_winners[winners[0]] = 3
             else:
                 # If there is a draw
                 for winner in winners:
-                    one_hot_winners[winner] = 0
+                    one_hot_winners[winner] = 1
             return one_hot_winners
         return None
 

@@ -33,7 +33,7 @@ def play_match(
     matches = (
         list(permutations(np.arange(len(players))))
         if permute
-        else list(np.arange(len(players)))
+        else [np.arange(len(players))]
     )
 
     # Initialize scoreboard

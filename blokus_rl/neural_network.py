@@ -4,6 +4,7 @@ import torch
 from .colossumrl import ColosseumBlokusGameWrapper
 from .hparams import MCTSHparams
 from .utils import LOG_INFO, AverageMeter, to_device
+from .models import get_model
 
 
 class BlokusNNetWrapper:
@@ -11,13 +12,15 @@ class BlokusNNetWrapper:
         self,
         game: ColosseumBlokusGameWrapper,
         hparams: MCTSHparams,
-        model,
         device: str = "cpu",
+        model_type: str | None = None,
     ):
         self.game = game
         self.hparams = hparams
         self.device = device
-        self.model = model(game, hparams).to(self.device)
+        self.model_type = model_type or hparams.model_type
+        self.model = get_model(self.model_type)(game, hparams)
+        self.model.to(self.device)
         self.elo = 1000
         self.latest_loss = 0
         self.mean_loss = AverageMeter()
@@ -53,7 +56,7 @@ class BlokusNNetWrapper:
         p_pred, v_pred = self.model(obs)
 
         # Compute loss
-        loss = self.loss(masks, (p_pred, v_pred), (p_gt, v_gt))
+        loss = self.compute_loss(masks, (p_pred, v_pred), (p_gt, v_gt))
 
         # Backward pass
         self.optimizer.zero_grad()
@@ -67,6 +70,7 @@ class BlokusNNetWrapper:
         # Return loss
         return loss.item()
 
+    @torch.inference_mode()
     def predict(self, x, mask):
         """Predict the policy and value for a given state.
 
@@ -77,20 +81,33 @@ class BlokusNNetWrapper:
         Returns:
             The policy and value."""
         self.model.eval()
-        with torch.no_grad():
-            x = torch.from_numpy(x).float()
-            x = x.unsqueeze(0)
-            x = x.to(self.device)
-            p_logits, v = self.model(x)
-            mask = torch.from_numpy(mask).bool().to(self.device)
-            # EXP because log softmax
-            p, v = (
-                self.get_valid_dist(mask, p_logits[0]).cpu().numpy().squeeze(),
-                v.cpu().numpy().squeeze(),
-            )
-        return p, v
+        x = torch.from_numpy(x).float().to(self.device).unsqueeze(0)
+        mask = torch.from_numpy(mask).bool().to(self.device)
+        p_logits, v = self.model(x)
+        # EXP because log softmax
+        p = self.get_valid_dist(mask, p_logits[0]).cpu().numpy().squeeze()
+        return p, v.cpu().numpy().squeeze()
+    
+    @torch.inference_mode()
+    def eval_fn(self, batch):
 
-    def loss(self, masks, prediction, target):
+        batch = to_device(batch, self.device)
+        # Get data from batch
+        obs = batch["observation"]
+        masks = batch["mask"]
+        p_gt = batch["prob"]
+        v_gt = batch["score"]
+
+        # Forward pass
+        p_pred, v_pred = self.model(obs)
+
+        # Compute loss
+        loss = self.compute_loss(masks, (p_pred, v_pred), (p_gt, v_gt))
+
+        return loss
+
+
+    def compute_loss(self, masks, prediction, target):
         """Compute the loss.
 
         Args:
@@ -102,11 +119,12 @@ class BlokusNNetWrapper:
             The loss."""
         p_pred, v_pred = prediction
         p_gt, v_gt = target
-        v_loss = ((v_pred - v_gt) ** 2).sum()  # Mean squared error
+        v_loss = (v_pred.squeeze() - v_gt).pow(2).mean()  # Mean squared error
         p_loss = 0
         for mask, gt, logits in zip(masks, p_gt, p_pred):
             pred = self.get_valid_dist(mask, logits, log_softmax=True)
             p_loss += -torch.sum(gt * pred)
+        p_loss /= masks.size(0)
         return p_loss + v_loss
 
     def get_valid_dist(self, mask, logits, log_softmax=False):

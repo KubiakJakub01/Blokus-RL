@@ -11,19 +11,20 @@ from ..utils import LOG_INFO
 class MCTSDataset(Dataset):
     """Dataset for MCTS"""
 
-    def __init__(self, hparams: MCTSHparams):
+    def __init__(self, hparams: MCTSHparams, is_train: bool = True):
         super().__init__()
 
         # Get hyperparameters
         self.hparams = hparams
+        self.data_dir = self.hparams.data_dir if is_train else self.hparams.val_data_dir
 
         # Load data from files
         self.data = self.load_data(
-            self.hparams.data_dir, self.hparams.num_iters_for_train_examples_history
+            self.data_dir, self.hparams.num_iters_for_train_examples_history
         )
 
         LOG_INFO(
-            "Loaded %d examples from %s", len(self.data), str(self.hparams.data_dir)
+            "Loaded %d examples from %s", len(self.data), str(self.data_dir)
         )
 
     def load_data(self, data_dir, max_iters):

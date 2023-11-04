@@ -14,10 +14,10 @@ from tqdm import tqdm
 
 from ..colossumrl import ColosseumBlokusGameWrapper
 from ..hparams import MCTSHparams
-from ..models import BlokusNNet
+from ..models import DCNNet
 from ..neural_network import BlokusNNetWrapper
 from ..players import MCTSPlayer
-from ..utils import LOG_INFO, LOG_WARNING
+from ..utils import LOG_INFO, LOG_WARNING, calculate_n_parameters
 from .arena import play_match
 from .dataset import MCTSDataset
 from .mcts import MCTS
@@ -44,7 +44,7 @@ class AlphaZeroTrainer:
         self.game = ColosseumBlokusGameWrapper(self.hparams)
 
         # Agent and opponent neural nets with monte carlo tree search
-        self.nnet = BlokusNNetWrapper(self.game, self.hparams, BlokusNNet, self.device)
+        self.nnet = BlokusNNetWrapper(self.game, self.hparams, self.device)
         self.pnet: BlokusNNetWrapper
 
         # Can be overriden in load_checkpoint()
@@ -57,8 +57,19 @@ class AlphaZeroTrainer:
         self.skip_first_self_play = False  # can be overriden in load_train_examples()
         self._model_version = 0
         self._running_vals = self._reset_running_vals()
+        self.model_num_params = calculate_n_parameters(self.nnet.model)
 
         LOG_INFO("AlphaZero trainer initialized with device %s", self.device)
+        LOG_INFO("Model type: %s", self.nnet.model_type)
+        LOG_INFO("Model parameters: %.2fM", self.model_num_params / 1e6)
+
+        # Write the model graph to tensorboard
+        dummy_input = (
+            torch.zeros(self.game.get_observation_size()).unsqueeze(0).to(self.device)
+        )
+        self.writer.add_graph(self.nnet.model, dummy_input)
+        self.writer.add_text("model/type", self.nnet.model_type)
+        self.writer.add_text("model/num_params [M]", str(self.model_num_params / 1e6))
 
     def train(self):
         """Train the model."""
@@ -138,23 +149,28 @@ class AlphaZeroTrainer:
         train_dl = DataLoader(
             MCTSDataset(self.hparams), batch_size=self.hparams.batch_size, shuffle=True
         )
+        self._update_running_vals({"num_train_examples": len(train_dl)}, prefix="train")
 
         # Train the model
-        with tqdm(total=self.hparams.num_updates, desc="Training Net") as train_bar:
-            for i, batch in enumerate(self._make_infinite_dataloader(train_dl)):
-                loss = self.nnet.train_step(batch)
-                losses.append(loss)
-                train_bar.set_postfix(loss=loss)
-                train_bar.update()
-                if i >= self.hparams.num_updates:
-                    break
+        train_bar = tqdm(
+            range(self.hparams.epochs),
+            desc="Training",
+            total=self.hparams.epochs,
+        )
+        for _ in range(self.hparams.epochs):
+            epoch_losses = self._train_epoch(train_dl)
+            losses.append(epoch_losses)
+            train_bar.update()
+            train_bar.set_postfix({"loss": epoch_losses})
+        train_bar.close()
 
         # Log the training loss
         self._update_running_vals({"loss": mean(losses)}, prefix="train")
+        self._update_running_vals({"lr": self.nnet.optimizer.param_groups[0]["lr"]})
         LOG_INFO("Average train loss: %.2f", mean(losses))
 
         # Load the pnet
-        self.pnet = BlokusNNetWrapper(self.game, self.hparams, BlokusNNet, self.device)
+        self.pnet = BlokusNNetWrapper(self.game, self.hparams, self.device)
         self.pnet.load_checkpoint(filename=self.hparams.temp_model_name)
 
         # Compare the models
@@ -180,16 +196,10 @@ class AlphaZeroTrainer:
         # Log the running values
         self._log_to_tensorboard(self.interation)
 
-        # Save the best model
-        if self.nnet.elo > self.pnet.elo:
-            LOG_INFO("New best model with elo %.2f", self.nnet.elo)
-            self.nnet.save_checkpoint(
-                filename=self._get_checkpoint_file(self.interation),
-            )
-            self.nnet.save_checkpoint(filename=self.hparams.best_model_name)
-        else:
-            LOG_INFO("Rejecting new model")
-            self.nnet.load_checkpoint(self.hparams.temp_model_name)
+        # Save the model checkpoint
+        self.nnet.save_checkpoint(
+            filename=self._get_checkpoint_file(self.interation),
+        )
 
     def _arena_compare(self, opponent_type: Literal["pnet", "random", "uninformed"]):
         """Arena compare the models."""
@@ -241,6 +251,14 @@ class AlphaZeroTrainer:
 
         # Return the table and the video
         return scores, writer.dumps(), items
+
+    def _train_epoch(self, train_dl: DataLoader):
+        """Train for one epoch."""
+        losses = []
+        for batch in train_dl:
+            loss = self.nnet.train_step(batch)
+            losses.append(loss)
+        return mean(losses)
 
     def _make_infinite_dataloader(self, train_dl: DataLoader):
         """Make infinite dataloader."""
