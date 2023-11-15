@@ -8,7 +8,6 @@ import torch
 
 from .colossumrl import ColosseumBlokusGameWrapper
 from .hparams import MCTSHparams, load_hparams
-from .models import DCNNet, DumbNet
 from .neural_network import BlokusNNetWrapper
 from .players import MCTSPlayer
 from .utils import LOG_INFO, set_environ
