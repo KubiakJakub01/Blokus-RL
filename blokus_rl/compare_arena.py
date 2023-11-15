@@ -1,16 +1,17 @@
-"""Module containing the Arena class for playing games between two agents."""
+"""Module containing the Arena class for playing games between agents."""
 import argparse
 from pathlib import Path
 from typing import Any
 
 import imageio
-import numpy as np
 import torch
 
-from .blokus import BlokusGameWrapper, BlokusNNetWrapper
+from .colossumrl import ColosseumBlokusGameWrapper
 from .hparams import MCTSHparams, load_hparams
-from .mcts import MCTS, Arena
+from .neural_network import BlokusNNetWrapper
+from .players import MCTSPlayer
 from .utils import LOG_INFO, set_environ
+from .alphazero import play_match
 
 
 def get_params():
@@ -25,7 +26,9 @@ def get_params():
     return args
 
 
-def init_player(player: str, game: BlokusGameWrapper, hparams: MCTSHparams, device: str):
+def init_player(
+    player: str, game: ColosseumBlokusGameWrapper, hparams: MCTSHparams, device: str
+):
     """Initialize a player.
 
     Args:
@@ -36,14 +39,28 @@ def init_player(player: str, game: BlokusGameWrapper, hparams: MCTSHparams, devi
 
     Returns:
         A function that takes a board as input and returns an action."""
-    if player == "random":
-        return game.sample_move
-
     if Path(player).exists():
-        nnet = BlokusNNetWrapper(game, hparams, device)
+        nnet = BlokusNNetWrapper(game, hparams, device, "resnet")
         nnet.load_checkpoint(player)
-        mcts = MCTS(game, nnet, hparams)
-        return lambda x: int(np.argmax(mcts.get_action_prob(x, temp=0)))
+        return MCTSPlayer(
+            game=game,
+            nn=nnet,
+            simulations=hparams.num_mcts_sims,
+        )
+
+    if player == "uninformed":
+        nnet = BlokusNNetWrapper(game, hparams, device, "dumbnet")
+        return MCTSPlayer(
+            game=game,
+            nn=nnet,
+            simulations=hparams.opponent_strength,
+        )
+
+    if player == "random":
+        raise NotImplementedError("Random player not implemented")
+
+    if player == "human":
+        raise NotImplementedError("Human player not implemented")
 
     raise ValueError(f"Unknown player: {player}")
 
@@ -53,13 +70,14 @@ def log_video(hparams: MCTSHparams, items: list[dict[str, Any]], step: int):
     if not hparams.capture_video:
         return
     LOG_INFO("Logging video")
-    video_dir = hparams.video_dir / f"step_{step}"
+    video_dir = hparams.video_dir / f"eval_{step}"
     video_dir.mkdir(parents=True, exist_ok=True)
-    for item in items:
-        frames = item["frames"]
-        player = item["player"]
+
+    for i, item in enumerate(items, 1):
         # Save the video
-        video_fp = video_dir / f"player_{player}.mp4"
+        frames = item["frames"]
+        scores = item["scores"]
+        video_fp = video_dir / f"game_{i}_scores_{scores}.mp4"
         imageio.mimsave(video_fp, frames, fps=1)
 
 
@@ -71,26 +89,24 @@ def main():
     hparams = load_hparams(params.hparams_fp, "mcts")
     set_environ(hparams)
     device = "cuda" if torch.cuda.is_available() and hparams.cuda else "cpu"
-    game = BlokusGameWrapper(hparams)
+    game = ColosseumBlokusGameWrapper(hparams)
 
     # Initialize players
-    player1 = init_player(hparams.player_1, game, hparams, device)
-    player2 = init_player(hparams.player_2, game, hparams, device)
-    LOG_INFO("Player 1: %s", hparams.player_1)
-    LOG_INFO("Player 2: %s", hparams.player_2)
-
-    # Initialize arena
-    arena = Arena(player1, player2, game, capture_video=hparams.capture_video)
+    players = [
+        init_player(player, game, hparams, device) for player in hparams.arena_players
+    ]
 
     # Play games
-    player1_wins, player2_wins, draws, items = arena.play_games(
-        hparams.arena_compare, verbose=hparams.verbose
+    scores, items = play_match(
+        game,
+        players,
+        games_num=hparams.compare_arena_games,
+        permute=hparams.permute,
+        capture_video=hparams.capture_video,
     )
 
     # Print results
-    LOG_INFO("Player 1 wins: %d", player1_wins)
-    LOG_INFO("Player 2 wins: %d", player2_wins)
-    LOG_INFO("Draws: %d", draws)
+    LOG_INFO("Arena compare %s: %s", str(hparams.arena_players), str(scores))
 
     # Log video
     log_video(hparams, items, 0)
