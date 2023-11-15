@@ -1,5 +1,6 @@
 """Module with neural network wrapper for MCTS."""
 import torch
+import torch.nn.functional as F
 
 from .colossumrl import ColosseumBlokusGameWrapper
 from .hparams import MCTSHparams
@@ -90,7 +91,7 @@ class BlokusNNetWrapper:
     
     @torch.inference_mode()
     def eval_fn(self, batch):
-
+        self.model.eval()
         batch = to_device(batch, self.device)
         # Get data from batch
         obs = batch["observation"]
@@ -105,7 +106,6 @@ class BlokusNNetWrapper:
         loss = self.compute_loss(masks, (p_pred, v_pred), (p_gt, v_gt))
 
         return loss
-
 
     def compute_loss(self, masks, prediction, target):
         """Compute the loss.
@@ -123,6 +123,7 @@ class BlokusNNetWrapper:
         p_loss = 0
         for mask, gt, logits in zip(masks, p_gt, p_pred):
             pred = self.get_valid_dist(mask, logits, log_softmax=True)
+            pred = F.pad(pred, (0, gt.shape[0] - pred.shape[0]), value=0)
             p_loss += -torch.sum(gt * pred)
         p_loss /= masks.size(0)
         return p_loss + v_loss

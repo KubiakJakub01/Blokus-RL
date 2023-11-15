@@ -3,6 +3,7 @@ from pickle import Unpickler
 
 import torch
 from torch.utils.data import Dataset
+from torch.nn.utils.rnn import pad_sequence
 
 from ..hparams import MCTSHparams
 from ..utils import LOG_INFO
@@ -30,13 +31,14 @@ class MCTSDataset(Dataset):
     def load_data(self, data_dir, max_iters):
         """Load data from files"""
         data = []
-        for examples_fp in list(data_dir.iterdir())[-max_iters:]:
+        examples_fp_list = list(data_dir.rglob('*.examples'))
+        for examples_fp in examples_fp_list[-max_iters:]:
             with open(examples_fp, "rb") as f:
                 data.extend(Unpickler(f).load())
         return data
 
     def __len__(self):
-        return len(self.data[0])
+        return len(self.data)
 
     def __getitem__(self, idx):
         return {
@@ -45,3 +47,8 @@ class MCTSDataset(Dataset):
             "prob": torch.from_numpy(self.data[idx][2]).float(),
             "score": torch.from_numpy(self.data[idx][3]).float(),
         }
+
+
+def collate_dataset_fn(samples: list[dict]):
+    batch: dict = {k: pad_sequence([s[k] for s in samples], batch_first=True) for k in samples[0]}
+    return batch

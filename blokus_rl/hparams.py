@@ -70,6 +70,7 @@ class HParams:
         self.checkpoint_dir = Path(self.checkpoint_dir)
         self.video_dir = Path(self.video_dir)
         self.log_dir = Path(self.log_dir)
+        self.data_dir = Path(self.data_dir)
 
     def dump_to_yaml(self, hparam_fp: Path) -> None:
         """Save hyperparameters to a YAML file."""
@@ -216,7 +217,10 @@ class MCTSHparams(HParams):
         default=200000, metadata={"help": "Maximum length of queue"}
     )
     num_mcts_sims: int = field(
-        default=25, metadata={"help": "Number of MCTS simulations"}
+        default=100, metadata={"help": "Number of MCTS simulations"}
+    )
+    arena_num_mcts_sims: int = field(
+        default=50, metadata={"help": "Number of MCTS simulations played during arena comparision"}
     )
     compare_arena_games: int = field(
         default=24, metadata={"help": "Number of games to play in the compare arena"}
@@ -243,6 +247,9 @@ class MCTSHparams(HParams):
     )
     num_iters_for_train_examples_history: int = field(
         default=20, metadata={"help": "Number of iterations for train examples history"}
+    )
+    skip_first_self_play: bool = field(
+        default=False, metadata={"help": "Whether to skip the first self play"}
     )
 
     # Evaluation parameters

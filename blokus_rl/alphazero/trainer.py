@@ -2,6 +2,7 @@ from collections import defaultdict
 from pickle import Pickler
 from statistics import mean
 from typing import Any, Literal
+from pathlib import Path
 
 import imageio
 import numpy as np
@@ -14,12 +15,11 @@ from tqdm import tqdm
 
 from ..colossumrl import ColosseumBlokusGameWrapper
 from ..hparams import MCTSHparams
-from ..models import DCNNet
 from ..neural_network import BlokusNNetWrapper
 from ..players import MCTSPlayer
 from ..utils import LOG_INFO, LOG_WARNING, calculate_n_parameters
 from .arena import play_match
-from .dataset import MCTSDataset
+from .dataset import MCTSDataset, collate_dataset_fn
 from .mcts import MCTS
 
 
@@ -49,7 +49,8 @@ class AlphaZeroTrainer:
 
         # Can be overriden in load_checkpoint()
         self.training_data: list = []
-        self.interation = 0
+        self.iteration = 0
+        self.train_epoch = 0
         if self.hparams.load_checkpoint_step is not None:
             LOG_INFO("Starting from checkpoint %d", self.hparams.load_checkpoint_step)
             self._load_checkpoint(self.hparams.load_checkpoint_step)
@@ -63,23 +64,24 @@ class AlphaZeroTrainer:
         LOG_INFO("Model type: %s", self.nnet.model_type)
         LOG_INFO("Model parameters: %.2fM", self.model_num_params / 1e6)
 
-        # Write the model graph to tensorboard
-        dummy_input = (
-            torch.zeros(self.game.get_observation_size()).unsqueeze(0).to(self.device)
-        )
-        self.writer.add_graph(self.nnet.model, dummy_input)
-        self.writer.add_text("model/type", self.nnet.model_type)
-        self.writer.add_text("model/num_params [M]", str(self.model_num_params / 1e6))
+        if self.hparams.load_checkpoint_step is None:
+            # Write the model graph to tensorboard
+            dummy_input = (
+                torch.zeros(self.game.get_observation_size()).unsqueeze(0).to(self.device)
+            )
+            self.writer.add_graph(self.nnet.model, dummy_input)
+            self.writer.add_text("model/type", self.nnet.model_type)
+            self.writer.add_text("model/num_params [M]", str(self.model_num_params / 1e6))
 
     def train(self):
         """Train the model."""
         for i in range(self.hparams.num_iters):
             LOG_INFO("Starting iteration %d", i + 1)
-            self.interation += 1
+            self.iteration += 1
             self._run_iteration()
 
-    # Does one game of self play and generates training samples.
     def _self_play(self, temperature):
+        """Run one episode of self-play."""
         s, current_player = self.game.get_init_board()
         tree = MCTS(self.game, self.nnet)
 
@@ -125,29 +127,33 @@ class AlphaZeroTrainer:
 
         return data
 
-    # Performs one iteration of policy improvement.
-    # Creates some number of games, then updates network parameters some number of times from that training data.
     def _run_iteration(self):
         """Run one iteration of policy improvement.
 
         Iteration consists of self-play, training, and arena compare."""
 
-        # Gather training examples from self-play
-        new_train_data_list = []
-        for _ in tqdm(range(self.hparams.num_eps), desc="Self play"):
-            new_train_data = self._self_play(self.hparams.temperature)
-            new_train_data_list.extend(new_train_data)
+        if self.hparams.skip_first_self_play:
+            LOG_INFO("Skipping first self play")
+            self.hparams.skip_first_self_play = False
+            # Save temp model to load into pnet
+            self.nnet.save_checkpoint(filename=self.hparams.temp_model_name)
+        else:
+            # Gather training examples from self-play
+            save_dir = self.hparams.data_dir / f"iteration_{self.iteration}"
+            for episode in tqdm(range(self.hparams.num_eps), desc="Self play"):
+                new_train_data = self._self_play(self.hparams.temperature)
+                self._save_train_examples(save_dir, episode, new_train_data)
 
-        # Save the training examples
-        self._save_train_examples(self.interation, new_train_data_list)
-
-        # Save temp model to load into pnet
-        self.nnet.save_checkpoint(filename=self.hparams.temp_model_name)
+            # Save temp model to load into pnet
+            self.nnet.save_checkpoint(filename=self.hparams.temp_model_name)
 
         # Prepare the training data
         losses = []
         train_dl = DataLoader(
-            MCTSDataset(self.hparams), batch_size=self.hparams.batch_size, shuffle=True
+            MCTSDataset(self.hparams),
+            batch_size=self.hparams.batch_size,
+            collate_fn=collate_dataset_fn,
+            shuffle=True
         )
         self._update_running_vals({"num_train_examples": len(train_dl)}, prefix="train")
 
@@ -158,15 +164,16 @@ class AlphaZeroTrainer:
             total=self.hparams.epochs,
         )
         for _ in range(self.hparams.epochs):
-            epoch_losses = self._train_epoch(train_dl)
-            losses.append(epoch_losses)
+            self.train_epoch += 1
+            epoch_loss = self._train_epoch(train_dl)
+            losses.append(epoch_loss)
             train_bar.update()
-            train_bar.set_postfix({"loss": epoch_losses})
+            train_bar.set_postfix({"loss": epoch_loss})
+            self.writer.add_scalar("train/loss", epoch_loss, self.train_epoch)
+            self.writer.add_scalar("lr", self.nnet.optimizer.param_groups[0]["lr"], self.train_epoch)
         train_bar.close()
 
         # Log the training loss
-        self._update_running_vals({"loss": mean(losses)}, prefix="train")
-        self._update_running_vals({"lr": self.nnet.optimizer.param_groups[0]["lr"]})
         LOG_INFO("Average train loss: %.2f", mean(losses))
 
         # Load the pnet
@@ -188,17 +195,17 @@ class AlphaZeroTrainer:
         self._update_running_vals({"elo": self.nnet.elo}, prefix="train")
 
         # Log scores to tensorboard
-        self.writer.add_text("Arena compare", score_table, self.interation)
+        self.writer.add_text("Arena compare", score_table, self.iteration)
 
         # Log the video
-        self._log_video(arena_items, self.interation)
+        self._log_video(arena_items, self.iteration)
 
         # Log the running values
-        self._log_to_tensorboard(self.interation)
+        self._log_to_tensorboard(self.iteration)
 
         # Save the model checkpoint
         self.nnet.save_checkpoint(
-            filename=self._get_checkpoint_file(self.interation),
+            filename=self._get_checkpoint_file(self.iteration),
         )
 
     def _arena_compare(self, opponent_type: Literal["pnet", "random", "uninformed"]):
@@ -240,11 +247,11 @@ class AlphaZeroTrainer:
         LOG_INFO("Arena compare %s: %s", opponent_type, str(scores))
 
         # Prepare the table
-        players = [f"agent_{self.interation}"] + [
+        players = [f"agent_{self.iteration}"] + [
             f"{opponent_type}_{self.hparams.num_mcts_sims}"
         ] * 3
         writer = MarkdownTableWriter(
-            table_name=f"Arena compare {self.interation}",
+            table_name=f"Arena compare {self.iteration}",
             headers=["Player", "Score"],
             value_matrix=list(zip(players, scores)),
         )
@@ -274,10 +281,10 @@ class AlphaZeroTrainer:
         """Get the data file name."""
         return "checkpoint_" + str(iteration) + ".examples"
 
-    def _save_train_examples(self, iteration: int, train_examples):
+    def _save_train_examples(self, save_dir: Path, iteration: int, train_examples):
         """Save the train examples to a file."""
-        LOG_INFO("Saving train_examples to file after %d iteration", iteration)
-        filename = self.hparams.data_dir / self._get_data_file(iteration)
+        save_dir.mkdir(parents=True, exist_ok=True)
+        filename = save_dir / self._get_data_file(iteration)
         with open(filename, "wb+") as f:
             Pickler(f).dump(train_examples)
 
@@ -292,7 +299,8 @@ class AlphaZeroTrainer:
         self.nnet.load_checkpoint(filename=model_filename)
 
         # examples based on the model were already collected (loaded)
-        self.interation = self.hparams.load_checkpoint_step
+        self.iteration = self.hparams.load_checkpoint_step
+        self.train_epoch = self.iteration * self.hparams.epochs
 
     def _log_to_tensorboard(self, step: int):
         """Log the running values to tensorboard."""
