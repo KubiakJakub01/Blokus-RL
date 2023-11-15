@@ -20,7 +20,8 @@ class HParams:
         default=Path("data/train"), metadata={"help": "Directory to save data"}
     )
     val_data_dir: Path = field(
-        default=Path("data/valid"), metadata={"help": "Directory to save validation data"}
+        default=Path("data/valid"),
+        metadata={"help": "Directory to save validation data"},
     )
     load_checkpoint_step: int | None = field(
         default=None,
@@ -220,7 +221,8 @@ class MCTSHparams(HParams):
         default=100, metadata={"help": "Number of MCTS simulations"}
     )
     arena_num_mcts_sims: int = field(
-        default=50, metadata={"help": "Number of MCTS simulations played during arena comparision"}
+        default=50,
+        metadata={"help": "Number of MCTS simulations played during arena comparision"},
     )
     compare_arena_games: int = field(
         default=24, metadata={"help": "Number of games to play in the compare arena"}

@@ -67,11 +67,15 @@ class AlphaZeroTrainer:
         if self.hparams.load_checkpoint_step is None:
             # Write the model graph to tensorboard
             dummy_input = (
-                torch.zeros(self.game.get_observation_size()).unsqueeze(0).to(self.device)
+                torch.zeros(self.game.get_observation_size())
+                .unsqueeze(0)
+                .to(self.device)
             )
             self.writer.add_graph(self.nnet.model, dummy_input)
             self.writer.add_text("model/type", self.nnet.model_type)
-            self.writer.add_text("model/num_params [M]", str(self.model_num_params / 1e6))
+            self.writer.add_text(
+                "model/num_params [M]", str(self.model_num_params / 1e6)
+            )
 
     def train(self):
         """Train the model."""
@@ -153,7 +157,7 @@ class AlphaZeroTrainer:
             MCTSDataset(self.hparams),
             batch_size=self.hparams.batch_size,
             collate_fn=collate_dataset_fn,
-            shuffle=True
+            shuffle=True,
         )
         self._update_running_vals({"num_train_examples": len(train_dl)}, prefix="train")
 
@@ -170,7 +174,9 @@ class AlphaZeroTrainer:
             train_bar.update()
             train_bar.set_postfix({"loss": epoch_loss})
             self.writer.add_scalar("train/loss", epoch_loss, self.train_epoch)
-            self.writer.add_scalar("lr", self.nnet.optimizer.param_groups[0]["lr"], self.train_epoch)
+            self.writer.add_scalar(
+                "lr", self.nnet.optimizer.param_groups[0]["lr"], self.train_epoch
+            )
         train_bar.close()
 
         # Log the training loss

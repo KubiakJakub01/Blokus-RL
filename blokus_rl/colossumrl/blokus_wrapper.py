@@ -62,8 +62,8 @@ class ColosseumBlokusGameWrapper:
             number of all possible actions
         """
         return len(self.action_move_dict)
-    
-    def get_observation_size(self) -> int:
+
+    def get_observation_size(self) -> list[int]:
         """
         Returns:
             number of all possible actions

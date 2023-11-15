@@ -24,14 +24,12 @@ class MCTSDataset(Dataset):
             self.data_dir, self.hparams.num_iters_for_train_examples_history
         )
 
-        LOG_INFO(
-            "Loaded %d examples from %s", len(self.data), str(self.data_dir)
-        )
+        LOG_INFO("Loaded %d examples from %s", len(self.data), str(self.data_dir))
 
     def load_data(self, data_dir, max_iters):
         """Load data from files"""
         data = []
-        examples_fp_list = list(data_dir.rglob('*.examples'))
+        examples_fp_list = list(data_dir.rglob("*.examples"))
         for examples_fp in examples_fp_list[-max_iters:]:
             with open(examples_fp, "rb") as f:
                 data.extend(Unpickler(f).load())
@@ -50,5 +48,7 @@ class MCTSDataset(Dataset):
 
 
 def collate_dataset_fn(samples: list[dict]):
-    batch: dict = {k: pad_sequence([s[k] for s in samples], batch_first=True) for k in samples[0]}
+    batch: dict = {
+        k: pad_sequence([s[k] for s in samples], batch_first=True) for k in samples[0]
+    }
     return batch

@@ -88,7 +88,7 @@ class BlokusNNetWrapper:
         # EXP because log softmax
         p = self.get_valid_dist(mask, p_logits[0]).cpu().numpy().squeeze()
         return p, v.cpu().numpy().squeeze()
-    
+
     @torch.inference_mode()
     def eval_fn(self, batch):
         self.model.eval()

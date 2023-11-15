@@ -41,7 +41,7 @@ def init_player(
     Returns:
         A function that takes a board as input and returns an action."""
     if Path(player).exists():
-        nnet = BlokusNNetWrapper(game, hparams, DCNNet, device)
+        nnet = BlokusNNetWrapper(game, hparams, device, "resnet")
         nnet.load_checkpoint(player)
         return MCTSPlayer(
             game=game,
@@ -50,7 +50,7 @@ def init_player(
         )
 
     if player == "uninformed":
-        nnet = BlokusNNetWrapper(game, hparams, DumbNet, device)
+        nnet = BlokusNNetWrapper(game, hparams, device, "dumbnet")
         return MCTSPlayer(
             game=game,
             nn=nnet,

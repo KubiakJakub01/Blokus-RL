@@ -40,7 +40,7 @@ classifiers = [
 [tool.setuptools.package-dir]
 blokus_rl = "blokus_rl"
 
-[tool.pylint]
+[tool.pylint.'MESSAGES CONTROL']
 max-line-length = 120
 disable = [
     "missing-module-docstring",
@@ -53,6 +53,7 @@ disable = [
     "import-outside-toplevel",
     "c-extension-no-member",
     "too-many-locals",
-    "too-few-public-methods"
+    "too-few-public-methods",
+    "not-callable",
 ]
 generated-members=["numpy.*","torch.*"]

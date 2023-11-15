@@ -87,13 +87,13 @@ def objective(
     )
 
     # Train and evaluate the model
-    train_loss, val_loss = train_and_evaluate_model(hparams, device=device)
+    _, val_loss = train_and_evaluate_model(hparams, device=device)
 
     # Return the validation accuracy as the objective to be minimized
     return val_loss
 
 
-if __name__ == "__main__":
+def main():
     # Parse command line arguments
     args = get_args()
 
@@ -107,3 +107,7 @@ if __name__ == "__main__":
     )
     study.optimize(_objective, n_trials=100)
     print(study.best_trial)
+
+
+if __name__ == "__main__":
+    main()
