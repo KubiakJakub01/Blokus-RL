@@ -40,7 +40,8 @@ Jak widać na wykresach algorytm szybko nauczył się grać w to środowisko. Wa
 
 Dodatkowo załączam filmik z działania agenta w tym środowisku:
 
-<video width="630" height="300" src="./images/PPO/rl-cart_pole-video-episode-343.mp4"></video>
+<img src="./images/PPO/rl-cart_pole.gif" width="630" height="300" />
+
 
 ### Blokus
 
