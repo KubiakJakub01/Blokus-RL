@@ -70,6 +70,8 @@ def make_envs(idx, hparams: HParams):
                 )
         env.action_space.seed(hparams.seed)
         env.observation_space.seed(hparams.seed)
+        LOG_INFO("Environment %s with %d actions and %d observations",
+                 hparams.gym_env, env.action_space.n, env.observation_space.shape[0])
         return env
 
     return _make_env
