@@ -9,6 +9,7 @@ import numpy as np
 import torch
 from torch import nn, optim
 from torch.utils.tensorboard import SummaryWriter
+from torchsummary import summary
 
 from ..hparams import PPOHparams
 from ..utils import LOG_INFO, LOG_WARNING, make_envs
@@ -47,6 +48,8 @@ class PPOTrainer:
         self.global_step = 0
         self._total_episodes = 0
         self._total_episodes_reward = 0
+
+        self._log_model_summary_to_tensorboard()
 
         LOG_INFO("Trainer initialized with device: %s", self.device)
 
@@ -354,6 +357,10 @@ class PPOTrainer:
         if "blokus" in self.hparams.gym_env:
             return self.envs.get_attr("ai_possible_indexes")
         return None
+    
+    def _log_model_summary_to_tensorboard(self):
+        """Log the model summary to tensorboard."""
+        summary(self.agent, (self.agent.input_dim,))
 
     @property
     def mean_episode_reward(self) -> float:
