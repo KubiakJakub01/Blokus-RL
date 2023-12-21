@@ -1,8 +1,8 @@
 from collections import defaultdict
+from pathlib import Path
 from pickle import Pickler
 from statistics import mean
 from typing import Any, Literal
-from pathlib import Path
 
 import imageio
 import numpy as np
@@ -11,6 +11,7 @@ from pytablewriter import MarkdownTableWriter
 from torch import Tensor
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
+from torchsummary import summary
 from tqdm import tqdm
 
 from ..colossumrl import ColosseumBlokusGameWrapper
@@ -63,6 +64,7 @@ class AlphaZeroTrainer:
         LOG_INFO("AlphaZero trainer initialized with device %s", self.device)
         LOG_INFO("Model type: %s", self.nnet.model_type)
         LOG_INFO("Model parameters: %.2fM", self.model_num_params / 1e6)
+        self._log_model_summary_to_tensorboard()
 
         if self.hparams.load_checkpoint_step is None:
             # Write the model graph to tensorboard
@@ -313,6 +315,10 @@ class AlphaZeroTrainer:
         for key, value in self._running_vals.items():
             self.writer.add_scalar(key, mean(value), step)
         self._running_vals = self._reset_running_vals()
+
+    def _log_model_summary_to_tensorboard(self):
+        """Log the model summary to tensorboard."""
+        summary(self.nnet.model, self.nnet.model.input_dim)
 
     def _reset_running_vals(self):
         """Reset the running values."""

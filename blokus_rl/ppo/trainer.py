@@ -357,7 +357,7 @@ class PPOTrainer:
         if "blokus" in self.hparams.gym_env:
             return self.envs.get_attr("ai_possible_indexes")
         return None
-    
+
     def _log_model_summary_to_tensorboard(self):
         """Log the model summary to tensorboard."""
         summary(self.agent, (self.agent.input_dim,))
