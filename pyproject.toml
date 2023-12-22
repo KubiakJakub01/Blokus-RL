@@ -28,6 +28,7 @@ dependencies = [
     "PyYAML==6.0.1",
     "tensorboard==2.14.1",
     "torch==2.0.1",
+    "torch-summary==1.4.5",
     "types-PyYAML==6.0.12.12",
     "wandb==0.15.12"
 ]
