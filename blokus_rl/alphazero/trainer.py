@@ -18,9 +18,9 @@ from ..colossumrl import ColosseumBlokusGameWrapper
 from ..hparams import AlphaZeroHparams
 from ..neural_network import BlokusNNetWrapper
 from ..players import MCTSPlayer
-from ..utils import LOG_INFO, LOG_WARNING, calculate_n_parameters
+from ..utils import log_info, log_warning, calculate_n_parameters
 from .arena import play_match
-from .dataset import MCTSDataset, collate_dataset_fn
+from .dataset import AlphaZeroDataset, collate_dataset_fn
 from .mcts import MCTS
 
 
@@ -53,7 +53,7 @@ class AlphaZeroTrainer:
         self.iteration = 0
         self.train_epoch = 0
         if self.hparams.load_checkpoint_step is not None:
-            LOG_INFO("Starting from checkpoint %d", self.hparams.load_checkpoint_step)
+            log_info("Starting from checkpoint %d", self.hparams.load_checkpoint_step)
             self._load_checkpoint(self.hparams.load_checkpoint_step)
 
         self.skip_first_self_play = False  # can be overriden in load_train_examples()
@@ -61,9 +61,9 @@ class AlphaZeroTrainer:
         self._running_vals = self._reset_running_vals()
         self.model_num_params = calculate_n_parameters(self.nnet.model)
 
-        LOG_INFO("AlphaZero trainer initialized with device %s", self.device)
-        LOG_INFO("Model type: %s", self.nnet.model_type)
-        LOG_INFO("Model parameters: %.2fM", self.model_num_params / 1e6)
+        log_info("AlphaZero trainer initialized with device %s", self.device)
+        log_info("Model type: %s", self.nnet.model_type)
+        log_info("Model parameters: %.2fM", self.model_num_params / 1e6)
         self._log_model_summary_to_tensorboard()
 
         if self.hparams.load_checkpoint_step is None:
@@ -82,7 +82,7 @@ class AlphaZeroTrainer:
     def train(self):
         """Train the model."""
         for i in range(self.hparams.num_iters):
-            LOG_INFO("Starting iteration %d", i + 1)
+            log_info("Starting iteration %d", i + 1)
             self.iteration += 1
             self._run_iteration()
 
@@ -139,7 +139,7 @@ class AlphaZeroTrainer:
         Iteration consists of self-play, training, and arena compare."""
 
         if self.hparams.skip_first_self_play:
-            LOG_INFO("Skipping first self play")
+            log_info("Skipping first self play")
             self.hparams.skip_first_self_play = False
             # Save temp model to load into pnet
             self.nnet.save_checkpoint(filename=self.hparams.temp_model_name)
@@ -156,7 +156,7 @@ class AlphaZeroTrainer:
         # Prepare the training data
         losses = []
         train_dl = DataLoader(
-            MCTSDataset(self.hparams),
+            AlphaZeroDataset(self.hparams),
             batch_size=self.hparams.batch_size,
             collate_fn=collate_dataset_fn,
             shuffle=True,
@@ -182,14 +182,14 @@ class AlphaZeroTrainer:
         train_bar.close()
 
         # Log the training loss
-        LOG_INFO("Average train loss: %.2f", mean(losses))
+        log_info("Average train loss: %.2f", mean(losses))
 
         # Load the pnet
         self.pnet = BlokusNNetWrapper(self.game, self.hparams, self.device)
         self.pnet.load_checkpoint(filename=self.hparams.temp_model_name)
 
         # Compare the models
-        LOG_INFO("Arena comparing")
+        log_info("Arena comparing")
         scores, score_table, arena_items = self._arena_compare(
             self.hparams.opponent_type
         )
@@ -199,7 +199,7 @@ class AlphaZeroTrainer:
         self.nnet.elo = self._compute_new_elo(self.nnet.elo, self.pnet.elo, scores[0])
 
         # Log the elo
-        LOG_INFO("Agent elo: %.2f -> %.2f", old_elo, self.nnet.elo)
+        log_info("Agent elo: %.2f -> %.2f", old_elo, self.nnet.elo)
         self._update_running_vals({"elo": self.nnet.elo}, prefix="train")
 
         # Log scores to tensorboard
@@ -252,7 +252,7 @@ class AlphaZeroTrainer:
             )
 
         # Log the results
-        LOG_INFO("Arena compare %s: %s", opponent_type, str(scores))
+        log_info("Arena compare %s: %s", opponent_type, str(scores))
 
         # Prepare the table
         players = [f"agent_{self.iteration}"] + [
@@ -299,7 +299,7 @@ class AlphaZeroTrainer:
     def _load_checkpoint(self, iteration: int):
         """Load the checkpoint."""
         if self.hparams.load_checkpoint_step is None:
-            LOG_WARNING("load_checkpoint_step is None")
+            log_warning("load_checkpoint_step is None")
             return
         model_filename = self._get_checkpoint_file(iteration)
         if (self.hparams.checkpoint_dir / self.hparams.best_model_name).exists():
@@ -346,7 +346,7 @@ class AlphaZeroTrainer:
         """Log the video."""
         if not self.hparams.capture_video:
             return
-        LOG_INFO("Logging video")
+        log_info("Logging video")
         video_dir = self.hparams.video_dir / f"step_{step}"
         video_dir.mkdir(parents=True, exist_ok=True)
 

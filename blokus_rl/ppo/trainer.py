@@ -12,7 +12,7 @@ from torch.utils.tensorboard import SummaryWriter
 from torchsummary import summary
 
 from ..hparams import PPOHparams
-from ..utils import LOG_INFO, LOG_WARNING, make_envs
+from ..utils import log_info, log_warning, make_envs
 from .agent import get_agent
 from .memory import Memory
 
@@ -51,7 +51,7 @@ class PPOTrainer:
 
         self._log_model_summary_to_tensorboard()
 
-        LOG_INFO("Trainer initialized with device: %s", self.device)
+        log_info("Trainer initialized with device: %s", self.device)
 
     def train(self):
         """Train the agent."""
@@ -325,7 +325,7 @@ class PPOTrainer:
         """Log the running values."""
         if self.hparams.logging:
             if update % self.hparams.log_interval == 0:
-                LOG_INFO(
+                log_info(
                     "global_step: %d | episodic_return: %.2f | loss: %.2f | SPS: %d",
                     self.global_step,
                     mean(self.running_vals["charts/episode_return"])
@@ -366,6 +366,6 @@ class PPOTrainer:
     def mean_episode_reward(self) -> float:
         """Mean episode reward."""
         if self._total_episodes == 0:
-            LOG_WARNING("No episodes were played.")
+            log_warning("No episodes were played.")
             return 0
         return self._total_episodes_reward / self._total_episodes

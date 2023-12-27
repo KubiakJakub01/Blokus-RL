@@ -4,7 +4,7 @@ from itertools import permutations
 import numpy as np
 from tqdm import tqdm
 
-from ..utils import LOG_DEBUG
+from ..utils import log_debug
 
 
 def play_match(
@@ -58,7 +58,7 @@ def play_match(
     pbar.close()
 
     if verbose:
-        LOG_DEBUG("Final scores: %s", str(scores))
+        log_debug("Final scores: %s", str(scores))
 
     return scores, items
 
@@ -74,9 +74,9 @@ def play_single_match(game, players, order, verbose, capture_video):
     while current_scores is None:
         p = order[current_player]
         if verbose:
-            LOG_DEBUG("Current player: %s", str(current_player))
-            LOG_DEBUG("Current state:")
-            LOG_DEBUG(game.display(s))
+            log_debug("Current player: %s", str(current_player))
+            log_debug("Current state:")
+            log_debug(game.display(s))
         s, current_player = players[p].update_state(s, current_player)
 
         if capture_video:

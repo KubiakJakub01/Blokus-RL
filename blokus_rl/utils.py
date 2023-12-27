@@ -23,22 +23,22 @@ logger.addHandler(handler)
 logger.addHandler(file_handler)
 
 
-def LOG_DEBUG(*args, **kwargs):
+def log_debug(*args, **kwargs):
     """Log an debug message."""
     logger.debug(*args, **kwargs)
 
 
-def LOG_INFO(*args, **kwargs):
+def log_info(*args, **kwargs):
     """Log an info message."""
     logger.info(*args, **kwargs)
 
 
-def LOG_WARNING(*args, **kwargs):
+def log_warning(*args, **kwargs):
     """Log a warning message."""
     logger.warning(*args, **kwargs)
 
 
-def LOG_ERROR(*args, **kwargs):
+def log_error(*args, **kwargs):
     """Log an error message."""
     logger.error(*args, **kwargs)
 
@@ -70,7 +70,7 @@ def make_envs(idx, hparams: HParams):
                 )
         env.action_space.seed(hparams.seed)
         env.observation_space.seed(hparams.seed)
-        LOG_INFO("Environment %s with %d actions and %d observations",
+        log_info("Environment %s with %d actions and %d observations",
                  hparams.gym_env, env.action_space.n, env.observation_space.shape[0])
         return env
 
