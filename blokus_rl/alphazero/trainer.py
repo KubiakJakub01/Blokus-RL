@@ -15,7 +15,7 @@ from torchsummary import summary
 from tqdm import tqdm
 
 from ..colossumrl import ColosseumBlokusGameWrapper
-from ..hparams import MCTSHparams
+from ..hparams import AlphaZeroHparams
 from ..neural_network import BlokusNNetWrapper
 from ..players import MCTSPlayer
 from ..utils import LOG_INFO, LOG_WARNING, calculate_n_parameters
@@ -30,7 +30,7 @@ class AlphaZeroTrainer:
     in Game and NeuralNet. args are specified in main.py.
     """
 
-    def __init__(self, hparams: MCTSHparams):
+    def __init__(self, hparams: AlphaZeroHparams):
         """Initialize monte carlo tree search trainer.
 
         Args:
@@ -368,7 +368,7 @@ class AlphaZeroTrainer:
             video_fp = video_dir / f"arena_{step}_game_{num_game}_scores_{scores}.mp4"
             imageio.mimsave(video_fp, frames, fps=1)
 
-    def _build_hparams(self, hparams: MCTSHparams):
+    def _build_hparams(self, hparams: AlphaZeroHparams):
         """Build hyperparameters."""
         self.hparams = hparams
         # Create the checkpoint and log dir if they don't exist

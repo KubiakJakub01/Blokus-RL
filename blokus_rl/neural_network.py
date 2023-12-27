@@ -3,7 +3,7 @@ import torch
 import torch.nn.functional as F
 
 from .colossumrl import ColosseumBlokusGameWrapper
-from .hparams import MCTSHparams
+from .hparams import AlphaZeroHparams
 from .utils import LOG_INFO, AverageMeter, to_device
 from .models import get_model
 
@@ -12,7 +12,7 @@ class BlokusNNetWrapper:
     def __init__(
         self,
         game: ColosseumBlokusGameWrapper,
-        hparams: MCTSHparams,
+        hparams: AlphaZeroHparams,
         device: str = "cpu",
         model_type: str | None = None,
     ):

@@ -5,14 +5,14 @@ import torch
 from torch.utils.data import Dataset
 from torch.nn.utils.rnn import pad_sequence
 
-from ..hparams import MCTSHparams
+from ..hparams import AlphaZeroHparams
 from ..utils import LOG_INFO
 
 
 class MCTSDataset(Dataset):
     """Dataset for MCTS"""
 
-    def __init__(self, hparams: MCTSHparams, is_train: bool = True):
+    def __init__(self, hparams: AlphaZeroHparams, is_train: bool = True):
         super().__init__()
 
         # Get hyperparameters

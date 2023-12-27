@@ -14,7 +14,7 @@ from colosseumrl.envs.blokus import (
 )
 from tqdm import tqdm
 
-from ..hparams import MCTSHparams
+from ..hparams import AlphaZeroHparams
 from ..utils import LOG_INFO, LOG_WARNING
 
 
@@ -24,7 +24,7 @@ class ColosseumBlokusGameWrapper:
     This class is used to wrap the Blokus game in order to be used by the MCTS algorithm.
     """
 
-    def __init__(self, hparams: MCTSHparams):
+    def __init__(self, hparams: AlphaZeroHparams):
         """Initializes the Blokus game wrapper.
 
         Args:

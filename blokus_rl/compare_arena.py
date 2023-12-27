@@ -7,7 +7,7 @@ import imageio
 import torch
 
 from .colossumrl import ColosseumBlokusGameWrapper
-from .hparams import MCTSHparams, load_hparams
+from .hparams import AlphaZeroHparams, load_hparams
 from .neural_network import BlokusNNetWrapper
 from .players import MCTSPlayer
 from .utils import LOG_INFO, set_environ
@@ -27,7 +27,7 @@ def get_params():
 
 
 def init_player(
-    player: str, game: ColosseumBlokusGameWrapper, hparams: MCTSHparams, device: str
+    player: str, game: ColosseumBlokusGameWrapper, hparams: AlphaZeroHparams, device: str
 ):
     """Initialize a player.
 
@@ -65,7 +65,7 @@ def init_player(
     raise ValueError(f"Unknown player: {player}")
 
 
-def log_video(hparams: MCTSHparams, items: list[dict[str, Any]], step: int):
+def log_video(hparams: AlphaZeroHparams, items: list[dict[str, Any]], step: int):
     """Log the video."""
     if not hparams.capture_video:
         return

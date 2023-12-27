@@ -11,7 +11,7 @@ from torch.utils.data import DataLoader
 
 from .alphazero.dataset import MCTSDataset
 from .colossumrl import ColosseumBlokusGameWrapper
-from .hparams import MCTSHparams
+from .hparams import AlphaZeroHparams
 from .neural_network import BlokusNNetWrapper
 
 
@@ -30,7 +30,7 @@ def get_args():
     return parser.parse_args()
 
 
-def train_and_evaluate_model(hparams: MCTSHparams, device: str = "cuda"):
+def train_and_evaluate_model(hparams: AlphaZeroHparams, device: str = "cuda"):
     """Train and evaluate model."""
 
     def _train_epoch(nnet, train_dl: DataLoader):
@@ -77,7 +77,7 @@ def objective(
     epochs = trial.suggest_int("epochs", 10, 100)
 
     # Prepare the hparams object
-    hparams = MCTSHparams(
+    hparams = AlphaZeroHparams(
         data_dir=data_dir,
         val_data_dir=val_data_dir,
         epochs=epochs,

@@ -3,13 +3,13 @@ import torch.nn.functional as F
 from torch import nn
 
 from ..colossumrl import ColosseumBlokusGameWrapper
-from ..hparams import MCTSHparams
+from ..hparams import AlphaZeroHparams
 
 
 class DCNNet(nn.Module):
     """Deep Convolutional Neural Network for Blokus"""
 
-    def __init__(self, game: ColosseumBlokusGameWrapper, hparams: MCTSHparams):
+    def __init__(self, game: ColosseumBlokusGameWrapper, hparams: AlphaZeroHparams):
         super().__init__()
         # game params
         self.hparams = hparams
@@ -88,7 +88,7 @@ class DCNNet(nn.Module):
 class ResNet(nn.Module):
     """Residual Neural Network for Blokus"""
 
-    def __init__(self, game: ColosseumBlokusGameWrapper, hparams: MCTSHparams):
+    def __init__(self, game: ColosseumBlokusGameWrapper, hparams: AlphaZeroHparams):
         super().__init__()
 
         # game params
