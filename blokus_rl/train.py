@@ -5,7 +5,7 @@ from pathlib import Path
 from .alphazero.trainer import AlphaZeroTrainer
 from .hparams import load_hparams
 from .ppo import PPOTrainer
-from .utils import LOG_INFO, seed, set_environ
+from .utils import log_info, seed, set_environ
 
 
 def get_params():
@@ -43,7 +43,7 @@ def main():
     # Load hyperparameters and trainer
     hparams = load_hparams(args.hparams_fp, args.algorithm)
 
-    LOG_INFO("Training model with %s algorithm", args.algorithm)
+    log_info("Training model with %s algorithm", args.algorithm)
     # Set up wandb
     if hparams.wanda:
         import wandb
@@ -57,7 +57,7 @@ def main():
             save_code=True,
         )
 
-    LOG_INFO(hparams)
+    log_info(hparams)
 
     # Set environment variables
     set_environ(hparams)

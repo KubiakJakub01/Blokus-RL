@@ -14,8 +14,8 @@ from colosseumrl.envs.blokus import (
 )
 from tqdm import tqdm
 
-from ..hparams import MCTSHparams
-from ..utils import LOG_INFO, LOG_WARNING
+from ..hparams import AlphaZeroHparams
+from ..utils import log_info, log_warning
 
 
 class ColosseumBlokusGameWrapper:
@@ -24,7 +24,7 @@ class ColosseumBlokusGameWrapper:
     This class is used to wrap the Blokus game in order to be used by the MCTS algorithm.
     """
 
-    def __init__(self, hparams: MCTSHparams):
+    def __init__(self, hparams: AlphaZeroHparams):
         """Initializes the Blokus game wrapper.
 
         Args:
@@ -265,13 +265,13 @@ class ColosseumBlokusGameWrapper:
         """Set all possible moves."""
 
         if self.states_fp.exists():
-            LOG_INFO("Loading all possible states from %s", str(self.states_fp))
+            log_info("Loading all possible states from %s", str(self.states_fp))
             with open(self.states_fp, "r", encoding="utf-8") as json_file:
                 self._move_action_dict = json.load(json_file)
             self.action_move_dict = {v: k for k, v in self._move_action_dict.items()}
 
         else:
-            LOG_WARNING("Building all possible states, this may take some time")
+            log_warning("Building all possible states, this may take some time")
             board = Board(track_canonical=False)
             actions_dict = board.get_all_valid_moves(
                 round_count=0,
@@ -303,5 +303,5 @@ class ColosseumBlokusGameWrapper:
             # Save the action dictionary to json file
             with open(self.states_fp, "w", encoding="utf-8") as json_file:
                 json.dump(move_action_dict, json_file)
-            LOG_INFO("%s has been saved", str(self.states_fp))
-        LOG_INFO("Number of all possible states: %d", len(self.action_move_dict))
+            log_info("%s has been saved", str(self.states_fp))
+        log_info("Number of all possible states: %d", len(self.action_move_dict))

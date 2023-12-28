@@ -181,7 +181,7 @@ class PPOHparams(HParams):
 
 
 @dataclass
-class MCTSHparams(HParams):
+class AlphaZeroHparams(HParams):
     """Hyperparameters for MCTS."""
 
     # Board parameters
@@ -268,12 +268,12 @@ class MCTSHparams(HParams):
     )
 
 
-HParamsType = HParams | PPOHparams | MCTSHparams
+HParamsType = HParams | PPOHparams | AlphaZeroHparams
 
 
 def get_hparams(algorithm: str = "ppo"):
     """Get hyperparameters for a given algorithm."""
-    hparams_dict = {"ppo": PPOHparams, "mcts": MCTSHparams}
+    hparams_dict = {"ppo": PPOHparams, "mcts": AlphaZeroHparams}
     return hparams_dict[algorithm]
 
 

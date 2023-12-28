@@ -3,8 +3,8 @@ import torch
 import torch.nn.functional as F
 
 from .colossumrl import ColosseumBlokusGameWrapper
-from .hparams import MCTSHparams
-from .utils import LOG_INFO, AverageMeter, to_device
+from .hparams import AlphaZeroHparams
+from .utils import log_info, AverageMeter, to_device
 from .models import get_model
 
 
@@ -12,7 +12,7 @@ class BlokusNNetWrapper:
     def __init__(
         self,
         game: ColosseumBlokusGameWrapper,
-        hparams: MCTSHparams,
+        hparams: AlphaZeroHparams,
         device: str = "cpu",
         model_type: str | None = None,
     ):
@@ -147,7 +147,7 @@ class BlokusNNetWrapper:
     def save_checkpoint(self, filename: str = "checkpoint.pth.tar"):
         """Save the model."""
         model_path = self.hparams.checkpoint_dir / filename
-        LOG_INFO("Saving checkpoint to: %s", model_path)
+        log_info("Saving checkpoint to: %s", model_path)
         torch.save(
             {
                 "nnet": self.model.state_dict(),
@@ -162,7 +162,7 @@ class BlokusNNetWrapper:
     def load_checkpoint(self, filename: str = "checkpoint.pth.tar"):
         """Load the model."""
         model_path = self.hparams.checkpoint_dir / filename
-        LOG_INFO("Loading model from: %s", str(model_path))
+        log_info("Loading model from: %s", str(model_path))
         assert model_path.exists(), f"Model path doesn't exist {model_path}"
         checkpoint = torch.load(model_path, map_location=self.device)
         self.model.load_state_dict(checkpoint["nnet"])

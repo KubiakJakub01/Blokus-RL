@@ -7,10 +7,10 @@ import imageio
 import torch
 
 from .colossumrl import ColosseumBlokusGameWrapper
-from .hparams import MCTSHparams, load_hparams
+from .hparams import AlphaZeroHparams, load_hparams
 from .neural_network import BlokusNNetWrapper
 from .players import MCTSPlayer
-from .utils import LOG_INFO, set_environ
+from .utils import log_info, set_environ
 from .alphazero import play_match
 
 
@@ -27,7 +27,7 @@ def get_params():
 
 
 def init_player(
-    player: str, game: ColosseumBlokusGameWrapper, hparams: MCTSHparams, device: str
+    player: str, game: ColosseumBlokusGameWrapper, hparams: AlphaZeroHparams, device: str
 ):
     """Initialize a player.
 
@@ -65,11 +65,11 @@ def init_player(
     raise ValueError(f"Unknown player: {player}")
 
 
-def log_video(hparams: MCTSHparams, items: list[dict[str, Any]], step: int):
+def log_video(hparams: AlphaZeroHparams, items: list[dict[str, Any]], step: int):
     """Log the video."""
     if not hparams.capture_video:
         return
-    LOG_INFO("Logging video")
+    log_info("Logging video")
     video_dir = hparams.video_dir / f"eval_{step}"
     video_dir.mkdir(parents=True, exist_ok=True)
 
@@ -106,7 +106,7 @@ def main():
     )
 
     # Print results
-    LOG_INFO("Arena compare %s: %s", str(hparams.arena_players), str(scores))
+    log_info("Arena compare %s: %s", str(hparams.arena_players), str(scores))
 
     # Log video
     log_video(hparams, items, 0)

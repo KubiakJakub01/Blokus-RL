@@ -5,14 +5,14 @@ import torch
 from torch.utils.data import Dataset
 from torch.nn.utils.rnn import pad_sequence
 
-from ..hparams import MCTSHparams
-from ..utils import LOG_INFO
+from ..hparams import AlphaZeroHparams
+from ..utils import log_info
 
 
-class MCTSDataset(Dataset):
+class AlphaZeroDataset(Dataset):
     """Dataset for MCTS"""
 
-    def __init__(self, hparams: MCTSHparams, is_train: bool = True):
+    def __init__(self, hparams: AlphaZeroHparams, is_train: bool = True):
         super().__init__()
 
         # Get hyperparameters
@@ -24,7 +24,7 @@ class MCTSDataset(Dataset):
             self.data_dir, self.hparams.num_iters_for_train_examples_history
         )
 
-        LOG_INFO("Loaded %d examples from %s", len(self.data), str(self.data_dir))
+        log_info("Loaded %d examples from %s", len(self.data), str(self.data_dir))
 
     def load_data(self, data_dir, max_iters):
         """Load data from files"""
