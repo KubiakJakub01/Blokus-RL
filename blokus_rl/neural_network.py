@@ -6,8 +6,8 @@ import torch.nn.functional as F
 
 from .colossumrl import ColosseumBlokusGameWrapper
 from .hparams import AlphaZeroHparams
-from .utils import log_info, AverageMeter, to_device
 from .models import get_model
+from .utils import AverageMeter, log_info, to_device
 
 
 class BlokusNNetWrapper:
@@ -96,11 +96,21 @@ class BlokusNNetWrapper:
         mask = torch.from_numpy(mask).bool().to(self.device)
         p_logits, v = self.model(x)
         # EXP because log softmax
-        p = self.get_valid_dist(mask, p_logits[0]).cpu().numpy().squeeze()
-        return p, v.cpu().numpy().squeeze()
+        p = self.get_valid_dist(mask, p_logits[0])
+        p = p.cpu().numpy().squeeze()
+        v = v.cpu().numpy().squeeze()
+        return p, v
 
     @torch.inference_mode()
     def eval_fn(self, batch):
+        """Evaluate the model.
+
+        Args:
+            batch: A batch of data.
+
+        Returns:
+            The loss."""
+
         self.model.eval()
         batch = to_device(batch, self.device)
         # Get data from batch
