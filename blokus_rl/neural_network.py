@@ -1,6 +1,4 @@
 """Module with neural network wrapper for MCTS."""
-from typing import Literal
-
 import torch
 import torch.nn.functional as F
 
@@ -15,7 +13,7 @@ class BlokusNNetWrapper:
         self,
         game: ColosseumBlokusGameWrapper,
         hparams: AlphaZeroHparams,
-        device: Literal["cpu", "cuda"] = "cuda",
+        device: str | torch.device = "cuda",
         model_type: str | None = None,
     ):
         """Wrapper for the neural network.
