@@ -73,6 +73,10 @@ class HParams:
         self.log_dir = Path(self.log_dir)
         self.data_dir = Path(self.data_dir)
 
+        self.checkpoint_dir.mkdir(parents=True, exist_ok=True)
+        self.video_dir.mkdir(parents=True, exist_ok=True)
+        self.log_dir.mkdir(parents=True, exist_ok=True)
+
     def dump_to_yaml(self, hparam_fp: Path) -> None:
         """Save hyperparameters to a YAML file."""
         with open(hparam_fp, "w", encoding="utf-8") as f:
@@ -106,7 +110,7 @@ class PPOHparams(HParams):
         default="mlp", metadata={"help": "Type of agent to use"}
     )
     save_interval: int = field(
-        default=1000, metadata={"help": "Number of updates between saving checkpoints"}
+        default=100, metadata={"help": "Number of updates between saving checkpoints"}
     )
     dropout: float = field(
         default=0.1, metadata={"help": "Dropout probability for MLP"}
@@ -273,7 +277,7 @@ HParamsType = HParams | PPOHparams | AlphaZeroHparams
 
 def get_hparams(algorithm: str = "ppo"):
     """Get hyperparameters for a given algorithm."""
-    hparams_dict = {"ppo": PPOHparams, "mcts": AlphaZeroHparams}
+    hparams_dict = {"ppo": PPOHparams, "alphazero": AlphaZeroHparams}
     return hparams_dict[algorithm]
 
 

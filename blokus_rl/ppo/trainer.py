@@ -45,7 +45,14 @@ class PPOTrainer:
         self.memory = Memory(self.hparams, self.envs, self.device)
         self.running_vals = self._reset_running_vals()
 
-        self.global_step = 0
+        if self.hparams.load_checkpoint_step is not None:
+            log_info("Starting from checkpoint %d", self.hparams.load_checkpoint_step)
+            self._load_checkpoint(self.hparams.load_checkpoint_step)
+        else:
+            log_info("Starting from scratch")
+            self.global_step = 0
+            self.update = 1
+        
         self._total_episodes = 0
         self._total_episodes_reward = 0
 
@@ -62,7 +69,7 @@ class PPOTrainer:
         next_obs = torch.Tensor(next_obs).to(self.device)
         next_done = torch.zeros(self.hparams.num_envs).to(self.device)
 
-        for update in range(1, self.hparams.num_updates + 1):
+        for update in range(self.update, self.hparams.num_updates + 1):
             # Annealing the rate if instructed to do so.
             if self.hparams.anneal_lr:
                 self.optimizer.param_groups[0]["lr"] = self._compute_anneal_lr(update)
@@ -93,10 +100,12 @@ class PPOTrainer:
 
             # Save the model
             if update % self.hparams.save_interval == 0:
-                self._save_checpoint()
+                self._save_checpoint(update)
+            
+            self.update += 1
 
         # Save the final model
-        self._save_checpoint()
+        self._save_checpoint(update)
 
         # Close the environment
         self.envs.close()
@@ -326,7 +335,8 @@ class PPOTrainer:
         if self.hparams.logging:
             if update % self.hparams.log_interval == 0:
                 log_info(
-                    "global_step: %d | episodic_return: %.2f | loss: %.2f | SPS: %d",
+                    "update: %d | global_step: %d | episodic_return: %.2f | loss: %.2f | SPS: %d",
+                    update,
                     self.global_step,
                     mean(self.running_vals["charts/episode_return"])
                     if len(self.running_vals["charts/episode_return"]) > 0
@@ -343,12 +353,29 @@ class PPOTrainer:
         else:
             self.running_vals = self._reset_running_vals()
 
-    def _save_checpoint(self):
+    def _save_checpoint(self, update: int):
         """Save the model."""
+        checkpoint_fp = self.hparams.checkpoint_dir / f"checkpoint_{update}.pt"
         torch.save(
-            self.agent.state_dict(),
-            self.hparams.log_dir / f"model_{self.global_step}.pt",
+            {
+                "agent": self.agent.state_dict(),
+                "optimizer": self.optimizer.state_dict(),
+                "update": update,
+                "global_step": self.global_step,
+            },
+            checkpoint_fp,
         )
+        log_info("Saved checkpoint %s", checkpoint_fp)
+
+    def _load_checkpoint(self, step: int):
+        """Load the model."""
+        checkpoint_fp = f"{self.hparams.checkpoint_dir}/checkpoint_{step}.pt"
+        log_info("Loading checkpoint %s", checkpoint_fp)
+        checkpoint = torch.load(checkpoint_fp)
+        self.agent.load_state_dict(checkpoint["agent"])
+        self.optimizer.load_state_dict(checkpoint["optimizer"])
+        self.update = checkpoint["update"] + 1
+        self.global_step = checkpoint["global_step"]
 
     def _get_valid_moves_mask(self) -> torch.Tensor | None:
         """Get the valid moves for the environment.
@@ -360,7 +387,11 @@ class PPOTrainer:
 
     def _log_model_summary_to_tensorboard(self):
         """Log the model summary to tensorboard."""
-        summary(self.agent, (self.agent.input_dim,))
+        log_info("Logging model summary to tensorboard")
+        if self.hparams.agent_type == "mlp":
+            summary(self.agent, (self.agent.input_dim,))
+        elif self.hparams.agent_type == "cnn":
+            summary(self.agent, self.agent.input_dim)
 
     @property
     def mean_episode_reward(self) -> float:

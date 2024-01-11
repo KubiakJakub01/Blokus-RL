@@ -86,7 +86,7 @@ def main():
     params = get_params()
 
     # Initialize game
-    hparams = load_hparams(params.hparams_fp, "mcts")
+    hparams = load_hparams(params.hparams_fp, "alphazero")
     set_environ(hparams)
     device = "cuda" if torch.cuda.is_available() and hparams.cuda else "cpu"
     game = ColosseumBlokusGameWrapper(hparams)
