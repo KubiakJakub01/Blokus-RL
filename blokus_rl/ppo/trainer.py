@@ -52,7 +52,7 @@ class PPOTrainer:
             log_info("Starting from scratch")
             self.global_step = 0
             self.update = 1
-        
+
         self._total_episodes = 0
         self._total_episodes_reward = 0
 
@@ -101,7 +101,7 @@ class PPOTrainer:
             # Save the model
             if update % self.hparams.save_interval == 0:
                 self._save_checpoint(update)
-            
+
             self.update += 1
 
         # Save the final model
