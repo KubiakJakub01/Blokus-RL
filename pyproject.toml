@@ -12,6 +12,7 @@ authors = [
 ]
 requires-python = ">=3.10"
 dependencies = [
+    "blokus-gym@git+https://github.com/KubiakJakub01/blokus_ai#egg=master",
     "colosseumrl@git+https://github.com/KubiakJakub01/colosseumrl#egg=master",
     "Cython==3.0.3",
     "PyYAML==6.0.1",
