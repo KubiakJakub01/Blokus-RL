@@ -1,0 +1,10 @@
+gym_env: CartPole-v1
+experiment_name: CartPole
+log_dir: models/logs/cart_pole
+checkpoint_dir: models/checkpoints/cart_pole
+agent_type: "mlp"
+wanda: false
+capture_video: false
+cuda: true
+dropout: 0
+d_model: 64

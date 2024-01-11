@@ -1,0 +1,6 @@
+experiment_name: alphazero_blokus_20x20
+log_dir: models/logs/alphazero_blokus_20x20
+checkpoint_dir: models/checkpoints/alphazero_blokus_20x20
+number_of_players: 4
+model_type: resnet
+num_mcts_sims: 25
