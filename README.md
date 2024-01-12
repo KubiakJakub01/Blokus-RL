@@ -32,7 +32,6 @@ To install the required packages, run the following command:
 ```bash
 git clone https://github.com/KubiakJakub01/Blokus-RL.git
 cd Blokus-RL
-pip install Cython==3.0.3
 pip install -e .
 ```
 

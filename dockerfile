@@ -10,5 +10,4 @@ RUN apt-get update && \
 COPY pyproject.toml ./
 COPY blokus_rl ./blokus_rl
 
-RUN pip install Cython==3.0.3
 RUN pip install -e .
