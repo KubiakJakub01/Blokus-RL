@@ -68,7 +68,7 @@ python -m blokus_rl.train \
 For running sample PPO training in Blokus $7$x$7$ environment, you can use the following command:
 ```bash
 python -m blokus_rl.train \
-        --hparams_fp config/ppo_blokus_7x7.yaml \
+        --hparams_fp config/ppo_blokus_7x7.yml \
         --algorithm ppo
 ```
 
@@ -77,7 +77,7 @@ python -m blokus_rl.train \
 For running sample AlphaZero training in Blokus $20$x$20$ environment, you can use the following command:
 ```bash
 python -m blokus_rl.train \
-        --hparams_fp config/alphazero_blokus_20x20.yaml \
+        --hparams_fp config/alphazero_blokus_20x20.yml \
         --algorithm alphazero
 ```
 
