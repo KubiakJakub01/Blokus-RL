@@ -32,7 +32,24 @@ To install the required packages, run the following command:
 ```bash
 git clone https://github.com/KubiakJakub01/Blokus-RL.git
 cd Blokus-RL
+pip install Cython==3.0.3
 pip install -e .
+```
+
+### Docker
+Alternatively, you can use [Docker](https://www.docker.com/) to run this repository. To build a Docker image, run the following command from the root directory of this repository:
+```bash
+docker build -t blokus-rl .
+```
+
+When running the Docker image remember to mount proper directories with config files, logs, and checkpoints. For example, to run a sample PPO training in Blokus $7$x$7$ environment, you can use the following command:
+```bash
+docker run -it --rm \
+           -v $(pwd)/config:/app/config \
+           blokus-rl \
+           python -m blokus_rl.train \
+                  --hparams_fp config/ppo_blokus_7x7.yml \
+                  --algorithm ppo
 ```
 
 ## Usage
