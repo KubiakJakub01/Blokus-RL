@@ -23,3 +23,6 @@ class MCTSPlayer(Player):
 
     def reset(self):
         self.tree = MCTS(self.game, self.nn)
+
+    def __str__(self) -> str:
+        return "MCTSPlayer"

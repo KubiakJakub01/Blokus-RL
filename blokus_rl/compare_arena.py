@@ -11,7 +11,7 @@ from .colossumrl import ColosseumBlokusGameWrapper
 from .hparams import AlphaZeroHparams, load_hparams
 from .neural_network import BlokusNNetWrapper
 from .players import HumanPlayer, MCTSPlayer, RandomPlayer
-from .utils import log_info
+from .utils import log_info, set_environ
 
 
 def get_params():
@@ -24,6 +24,29 @@ def get_params():
         help="List of players to compare. \
             Can be a path to a checkpoint, \
             'mcts', 'random', or 'human'.",
+    )
+    parser.add_argument(
+        "-v",
+        "--verbose",
+        action="store_true",
+        help="Whether to print additional information about the game.",
+    )
+    parser.add_argument(
+        "--permute",
+        action="store_true",
+        help="Whether to permute the order of players.",
+    )
+    parser.add_argument(
+        "--capture-video",
+        action="store_true",
+        help="Whether to capture a video of the game.",
+    )
+    parser.add_argument(
+        "-n",
+        "--num-games",
+        type=int,
+        default=1,
+        help="The number of games to play.",
     )
     args = parser.parse_args()
 
@@ -96,13 +119,13 @@ def log_video(hparams: AlphaZeroHparams, items: list[dict[str, Any]], step: int)
         imageio.mimsave(video_fp, frames, fps=1)
 
 
-
 def main():
     # Get CLI arguments
     params = get_params()
 
     # Initialize game
     hparams = load_hparams(algorithm="alphazero")
+    set_environ(hparams)
     game = ColosseumBlokusGameWrapper(hparams)
 
     # Initialize players
@@ -114,9 +137,9 @@ def main():
     scores, items = play_match(
         game,
         players,
-        games_num=hparams.compare_arena_games,
-        permute=hparams.permute,
-        capture_video=hparams.capture_video,
+        games_num=params.num_games,
+        permute=params.permute,
+        capture_video=params.capture_video,
     )
 
     # Print results

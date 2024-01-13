@@ -19,3 +19,6 @@ class RandomPlayer(Player):
     def reset(self):
         """Reset the player."""
         return
+
+    def __str__(self) -> str:
+        return "RandomPlayer"

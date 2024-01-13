@@ -1,8 +1,5 @@
 """Module containing the HumanPlayer class for playing blokus as a human."""
-import numpy as np
-
 from .player import Player
-from ..utils import log_info
 
 
 class HumanPlayer(Player):
@@ -21,14 +18,27 @@ class HumanPlayer(Player):
         Returns:
             The updated state and current player.
         """
-        log_info(s)
-        a = input("Enter move: ")
-        a = np.array([int(a)])
+        available_actions = self.game.get_valid_actions_for_human_player(s, current_player)
+        self.game.display(s)
+        for i, action in enumerate(available_actions):
+            print(f'{i}: {action}')
+        is_action_correct = False
+        while not is_action_correct:
+            a = input("Enter move: ")
+            if a.isdigit() and int(a) in range(len(available_actions)):
+                is_action_correct = True
+            else:
+                print("Invalid move. Try again.")
+        action = available_actions[int(a)]
+        print(f"You chose {action}")
         s_prime, current_player = self.game.get_next_state(
-            s, current_player, a[0]
+            s, current_player, action
         )
         return s_prime, current_player
 
     def reset(self):
         """Reset the player."""
-        pass
+        return
+
+    def __str__(self) -> str:
+        return "HumanPlayer"

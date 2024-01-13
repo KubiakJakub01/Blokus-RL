@@ -281,7 +281,7 @@ def get_hparams(algorithm: str = "ppo"):
     return hparams_dict[algorithm]
 
 
-def load_hparams(hparam_fp: Path | None = None, algorithm: str = "ppo"):
+def load_hparams(hparam_fp: Path | str | None = None, algorithm: str = "ppo"):
     """Load hyperparameters from a YAML file."""
     if hparam_fp is None:
         return get_hparams(algorithm)
