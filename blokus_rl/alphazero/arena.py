@@ -4,7 +4,7 @@ from itertools import permutations
 import numpy as np
 from tqdm import tqdm
 
-from ..utils import log_debug
+from ..utils import log_debug, log_info
 
 
 def play_match(
@@ -77,6 +77,7 @@ def play_single_match(game, players, order, verbose, capture_video):
             log_debug("Current player: %s", str(current_player))
             log_debug("Current state:")
             log_debug(game.display(s))
+        print(f"Player {p} {type(p)} thinking...",)
         s, current_player = players[p].update_state(s, current_player)
 
         if capture_video:

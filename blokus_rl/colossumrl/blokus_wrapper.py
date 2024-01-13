@@ -225,8 +225,9 @@ class ColosseumBlokusGameWrapper:
             move: a random move
         """
         players = state[-1]
-        valid_actions = self.env.valid_actions(state, players[0])
-        return np.random.choice(valid_actions)
+        valid_actions = self.env.valid_actions(state, players[0].player_color)
+        sampled_action = np.random.choice(valid_actions)
+        return self._move_action_dict[sampled_action]
 
     def render(self, state: Any):
         """

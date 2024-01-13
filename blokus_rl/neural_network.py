@@ -5,7 +5,7 @@ import torch.nn.functional as F
 from .colossumrl import ColosseumBlokusGameWrapper
 from .hparams import AlphaZeroHparams
 from .models import get_model
-from .utils import AverageMeter, log_info, to_device
+from .utils import AverageMeter, log_info, log_warning, to_device
 
 
 class BlokusNNetWrapper:
@@ -39,6 +39,16 @@ class BlokusNNetWrapper:
                 lr=self.hparams.lr,
                 weight_decay=self.hparams.weight_decay,
             )
+
+    @staticmethod
+    def get_checkpoint_file(iteration: int):
+        """Get the checkpoint file name."""
+        return "checkpoint_" + str(iteration) + ".pth.tar"
+
+    @staticmethod
+    def get_data_file(iteration: int):
+        """Get the data file name."""
+        return "checkpoint_" + str(iteration) + ".examples"
 
     def train_step(self, batch):
         """Train the model for one step.
@@ -177,7 +187,17 @@ class BlokusNNetWrapper:
             model_path,
         )
 
-    def load_checkpoint(self, filename: str = "checkpoint.pth.tar"):
+    def load_checkpoint(self, iteration: int):
+        """Load the checkpoint."""
+        if self.hparams.load_checkpoint_step is None:
+            log_warning("load_checkpoint_step is None")
+            return
+        model_filename = self.get_checkpoint_file(iteration)
+        if (self.hparams.checkpoint_dir / self.hparams.best_model_name).exists():
+            model_filename = self.hparams.best_model_name
+        self._load_checkpoint(filename=model_filename)
+
+    def _load_checkpoint(self, filename: str = "checkpoint.pth.tar"):
         """Load the model."""
         model_path = self.hparams.checkpoint_dir / filename
         log_info("Loading model from: %s", str(model_path))

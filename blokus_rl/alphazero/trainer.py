@@ -18,7 +18,7 @@ from ..colossumrl import ColosseumBlokusGameWrapper
 from ..hparams import AlphaZeroHparams
 from ..neural_network import BlokusNNetWrapper
 from ..players import MCTSPlayer
-from ..utils import log_info, log_warning, calculate_n_parameters
+from ..utils import calculate_n_parameters, log_info
 from .arena import play_match
 from .dataset import AlphaZeroDataset, collate_dataset_fn
 from .mcts import MCTS
@@ -54,7 +54,10 @@ class AlphaZeroTrainer:
         self.train_epoch = 0
         if self.hparams.load_checkpoint_step is not None:
             log_info("Starting from checkpoint %d", self.hparams.load_checkpoint_step)
-            self._load_checkpoint(self.hparams.load_checkpoint_step)
+            self.nnet.load_checkpoint(self.hparams.load_checkpoint_step)
+            # examples based on the model were already collected (loaded)
+            self.iteration = self.hparams.load_checkpoint_step
+            self.train_epoch = self.iteration * self.hparams.epochs
 
         self.skip_first_self_play = False  # can be overriden in load_train_examples()
         self._model_version = 0
@@ -213,7 +216,7 @@ class AlphaZeroTrainer:
 
         # Save the model checkpoint
         self.nnet.save_checkpoint(
-            filename=self._get_checkpoint_file(self.iteration),
+            filename=self.nnet.get_checkpoint_file(self.iteration),
         )
 
     def _arena_compare(self, opponent_type: Literal["pnet", "random", "uninformed"]):
@@ -281,34 +284,12 @@ class AlphaZeroTrainer:
             for batch in train_dl:
                 yield batch
 
-    def _get_checkpoint_file(self, iteration: int):
-        """Get the checkpoint file name."""
-        return "checkpoint_" + str(iteration) + ".pth.tar"
-
-    def _get_data_file(self, iteration: int):
-        """Get the data file name."""
-        return "checkpoint_" + str(iteration) + ".examples"
-
     def _save_train_examples(self, save_dir: Path, iteration: int, train_examples):
         """Save the train examples to a file."""
         save_dir.mkdir(parents=True, exist_ok=True)
-        filename = save_dir / self._get_data_file(iteration)
+        filename = save_dir / self.nnet.get_data_file(iteration)
         with open(filename, "wb+") as f:
             Pickler(f).dump(train_examples)
-
-    def _load_checkpoint(self, iteration: int):
-        """Load the checkpoint."""
-        if self.hparams.load_checkpoint_step is None:
-            log_warning("load_checkpoint_step is None")
-            return
-        model_filename = self._get_checkpoint_file(iteration)
-        if (self.hparams.checkpoint_dir / self.hparams.best_model_name).exists():
-            model_filename = self.hparams.best_model_name
-        self.nnet.load_checkpoint(filename=model_filename)
-
-        # examples based on the model were already collected (loaded)
-        self.iteration = self.hparams.load_checkpoint_step
-        self.train_epoch = self.iteration * self.hparams.epochs
 
     def _log_to_tensorboard(self, step: int):
         """Log the running values to tensorboard."""

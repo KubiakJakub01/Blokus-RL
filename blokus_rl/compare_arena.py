@@ -6,61 +6,76 @@ from typing import Any
 import imageio
 import torch
 
+from .alphazero import play_match
 from .colossumrl import ColosseumBlokusGameWrapper
 from .hparams import AlphaZeroHparams, load_hparams
 from .neural_network import BlokusNNetWrapper
-from .players import MCTSPlayer
-from .utils import log_info, set_environ
-from .alphazero import play_match
+from .players import HumanPlayer, MCTSPlayer, RandomPlayer
+from .utils import log_info
 
 
 def get_params():
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        "hparams_fp",
-        type=Path,
-        default="blokus_rl/configs/mcts.yaml",
-        help="Path to hyperparameter file",
+        "-p",
+        "--players",
+        nargs="+",
+        type=str,
+        help="List of players to compare. \
+            Can be a path to a checkpoint, \
+            'mcts', 'random', or 'human'.",
     )
     args = parser.parse_args()
+
+    def _valid_args(args):
+        assert len(args.players) == 4, "Must specify exactly 4 players"
+        for player in args.players:
+            assert (
+                Path(player).exists()
+                or player in ["mcts", "random", "human"]
+            ), f"Invalid player: {player}"
+
+    _valid_args(args)
     return args
 
 
-def init_player(
-    player: str, game: ColosseumBlokusGameWrapper, hparams: AlphaZeroHparams, device: str
-):
+def init_player(player: str, game: ColosseumBlokusGameWrapper):
     """Initialize a player.
 
     Args:
         player: The player to initialize.
-        game: The game.
-        hparams: The hyperparameters.
         device: The device to use.
 
     Returns:
-        A function that takes a board as input and returns an action."""
+        The initialized player.
+    """
     if Path(player).exists():
+        # Initialize game
+        hparams = load_hparams(player, "alphazero")
+        device = "cuda" if torch.cuda.is_available() and hparams.cuda else "cpu"
         nnet = BlokusNNetWrapper(game, hparams, device, "resnet")
-        nnet.load_checkpoint(player)
+        nnet.load_checkpoint(hparams.load_checkpoint_step)
         return MCTSPlayer(
             game=game,
             nn=nnet,
             simulations=hparams.num_mcts_sims,
         )
 
-    if player == "uninformed":
+    if player == "mcts":
+        hparams = load_hparams(algorithm="alphazero")
+        device = "cuda" if torch.cuda.is_available() and hparams.cuda else "cpu"
         nnet = BlokusNNetWrapper(game, hparams, device, "dumbnet")
         return MCTSPlayer(
             game=game,
             nn=nnet,
-            simulations=hparams.opponent_strength,
+            simulations=hparams.num_mcts_sims,
         )
 
     if player == "random":
-        raise NotImplementedError("Random player not implemented")
+        return RandomPlayer(game)
 
     if player == "human":
-        raise NotImplementedError("Human player not implemented")
+        return HumanPlayer(game)
 
     raise ValueError(f"Unknown player: {player}")
 
@@ -81,19 +96,18 @@ def log_video(hparams: AlphaZeroHparams, items: list[dict[str, Any]], step: int)
         imageio.mimsave(video_fp, frames, fps=1)
 
 
+
 def main():
     # Get CLI arguments
     params = get_params()
 
     # Initialize game
-    hparams = load_hparams(params.hparams_fp, "alphazero")
-    set_environ(hparams)
-    device = "cuda" if torch.cuda.is_available() and hparams.cuda else "cpu"
+    hparams = load_hparams(algorithm="alphazero")
     game = ColosseumBlokusGameWrapper(hparams)
 
     # Initialize players
     players = [
-        init_player(player, game, hparams, device) for player in hparams.arena_players
+        init_player(player, game) for player in params.players
     ]
 
     # Play games
