@@ -87,9 +87,13 @@ The training logs and checkpoints will be saved as specified in the config file 
 tensorboard --logdir <path_to_logs_directory>
 ```
 
-### Compare models
+### Compare arena
 
-To compare two agents, you can run the following command:
+To play a game between different players, use a compare arena. You can specify path to hparams of `alphazero` player or choose between those players' `mcts`, `random` or `human`. For more information, run the following command:
 ```bash
-python -m blokus_rl.compare_arena <path_to_config_file> 
+python -m blokus_rl.compare_arena -h
+```
+example:
+```bash
+python -m blokus_rl.compare_arena --players config/mcts_blokus.yml random mcts human
 ```

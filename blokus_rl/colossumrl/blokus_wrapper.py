@@ -87,7 +87,7 @@ class ColosseumBlokusGameWrapper:
         return current_state, current_players[0]
 
     def get_next_state(  # pylint: disable=unused-argument
-        self, current_state: Any, current_player: int, action_id: int
+        self, current_state: Any, current_player: int, action_id: int | str
     ) -> tuple[Any, int]:
         """
         Args:
@@ -99,7 +99,7 @@ class ColosseumBlokusGameWrapper:
             board after applying action
             player who plays in the next turn (should be -player)
         """
-        action = self.action_move_dict[action_id]
+        action = self.action_move_dict.get(action_id, action_id)
         next_state, next_players, *_ = self.env.next_state(
             state=current_state, players=[current_player], actions=[action]
         )
@@ -144,6 +144,22 @@ class ColosseumBlokusGameWrapper:
         board = state[0]
         mask = self.get_valid_moves(state, player)
         return board.canonical_board, mask
+
+    def get_valid_actions_for_human_player(self, state: Any, player: int):
+        """
+        Args:
+            current_state: tuple of (board, round_count, players)
+            player: current player index
+
+        Returns:
+            mask: a binary vector of length self.get_action_size(), 1 for
+                        moves that are valid from the current board and player,
+                        0 for invalid moves
+        """
+        valid_actions = self.env.valid_actions(
+            state=state, player=player
+        )
+        return valid_actions
 
     def get_game_ended(self, state):
         """
@@ -225,8 +241,9 @@ class ColosseumBlokusGameWrapper:
             move: a random move
         """
         players = state[-1]
-        valid_actions = self.env.valid_actions(state, players[0])
-        return np.random.choice(valid_actions)
+        valid_actions = self.env.valid_actions(state, players[0].player_color)
+        sampled_action = np.random.choice(valid_actions)
+        return self._move_action_dict[sampled_action]
 
     def render(self, state: Any):
         """

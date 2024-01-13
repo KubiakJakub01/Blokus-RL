@@ -56,6 +56,7 @@ def set_environ(hparams: HParams):
         logger.setLevel(logging.DEBUG)
     else:
         logger.setLevel(logging.INFO)
+    seed(hparams.seed)
     torch.autograd.set_detect_anomaly(hparams.detect_anomaly)
 
 
