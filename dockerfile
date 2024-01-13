@@ -10,6 +10,6 @@ RUN apt-get update && \
 COPY pyproject.toml ./
 COPY setup.py ./
 
-RUN pip install .[dev]
+RUN pip install -e .[dev]
 
 COPY blokus_rl ./blokus_rl

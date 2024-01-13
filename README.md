@@ -32,7 +32,7 @@ To install the required packages, run the following command:
 ```bash
 git clone https://github.com/KubiakJakub01/Blokus-RL.git
 cd Blokus-RL
-pip install -e .
+pip install -e .[dev]
 ```
 
 ### Docker
