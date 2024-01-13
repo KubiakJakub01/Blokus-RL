@@ -20,7 +20,7 @@ def get_params():
         "-a",
         "--algorithm",
         type=str,
-        choices=["ppo", "mcts"],
+        choices=["ppo", "alphazero"],
         default="ppo",
         help="Algorithm to use for training.",
     )
@@ -31,7 +31,7 @@ def train_agent(algo: str, hparams):
     """Train a model."""
     if algo == "ppo":
         trainer = PPOTrainer(hparams)  # type: ignore
-    elif algo == "mcts":
+    elif algo == "alphazero":
         trainer = AlphaZeroTrainer(hparams)  # type: ignore
     trainer.train()
 

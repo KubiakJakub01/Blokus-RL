@@ -109,6 +109,7 @@ class CnnAgent(nn.Module):
             envs: Environment object.
             hparams: Hyperparameters."""
         super().__init__()
+        self.input_dim = envs.single_observation_space.shape
         self.board_dim = np.array(envs.single_observation_space.shape).prod()
         self.output_dim = envs.single_action_space.n
         self.d_model = hparams.d_model
@@ -190,7 +191,7 @@ class MLP(nn.Module):
         return x
 
 
-class Agent(nn.Module):
+class MlpAgent(nn.Module):
     """Agent network."""
 
     def __init__(self, envs, hparams: PPOHparams):
@@ -239,5 +240,5 @@ class Agent(nn.Module):
 
 
 def get_agent(agent: str):
-    agents_dict = {"mlp": Agent, "cnn": CnnAgent}
+    agents_dict = {"mlp": MlpAgent, "cnn": CnnAgent}
     return agents_dict[agent]
