@@ -8,6 +8,8 @@ RUN apt-get update && \
     rm -rf /var/lib/apt/lists/*
 
 COPY pyproject.toml ./
-COPY blokus_rl ./blokus_rl
+COPY setup.py ./
 
-RUN pip install -e .
+RUN pip install .[dev]
+
+COPY blokus_rl ./blokus_rl
