@@ -10,7 +10,7 @@ from .alphazero import play_match
 from .colossumrl import ColosseumBlokusGameWrapper
 from .hparams import AlphaZeroHparams, load_hparams
 from .neural_network import BlokusNNetWrapper
-from .players import HumanPlayer, MCTSPlayer, RandomPlayer
+from .players import HumanPlayer, MCTSPlayer, RandomPlayer, Player
 from .utils import log_info, set_environ
 
 
@@ -62,12 +62,12 @@ def get_params():
     return args
 
 
-def init_player(player: str, game: ColosseumBlokusGameWrapper):
+def init_player(player: str, game: ColosseumBlokusGameWrapper) -> Player:
     """Initialize a player.
 
     Args:
         player: The player to initialize.
-        device: The device to use.
+        game: The game to play.
 
     Returns:
         The initialized player.
@@ -103,8 +103,17 @@ def init_player(player: str, game: ColosseumBlokusGameWrapper):
     raise ValueError(f"Unknown player: {player}")
 
 
-def log_video(hparams: AlphaZeroHparams, items: list[dict[str, Any]], step: int):
-    """Log the video."""
+def log_video(hparams: AlphaZeroHparams, items: list[dict[str, Any]], step: int) -> None:
+    """Log the video.
+    
+    Args:
+        hparams: The hyperparameters.
+        items: The items to log.
+        step: The step to log.
+    
+    Returns:
+        None
+    """
     if not hparams.capture_video:
         return
     log_info("Logging video")
