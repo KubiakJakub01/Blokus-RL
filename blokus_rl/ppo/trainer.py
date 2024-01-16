@@ -389,9 +389,10 @@ class PPOTrainer:
         """Log the model summary to tensorboard."""
         log_info("Logging model summary to tensorboard")
         if self.hparams.agent_type == "mlp":
-            summary(self.agent, (self.agent.input_dim,))
+            model_summary = summary(self.agent, (self.agent.input_dim,))
         elif self.hparams.agent_type == "cnn":
-            summary(self.agent, self.agent.input_dim)
+            model_summary = summary(self.agent, self.agent.input_dim)
+        self.writer.add_text("model_summary", model_summary)
 
     @property
     def mean_episode_reward(self) -> float:

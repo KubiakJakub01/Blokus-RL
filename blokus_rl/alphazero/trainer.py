@@ -299,7 +299,8 @@ class AlphaZeroTrainer:
 
     def _log_model_summary_to_tensorboard(self):
         """Log the model summary to tensorboard."""
-        summary(self.nnet.model, self.nnet.model.input_dim)
+        model_summary = summary(self.nnet.model, self.nnet.model.input_dim)
+        self.writer.add_text("model/summary", model_summary)
 
     def _reset_running_vals(self):
         """Reset the running values."""
