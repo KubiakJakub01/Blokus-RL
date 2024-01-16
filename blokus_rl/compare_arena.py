@@ -105,12 +105,12 @@ def init_player(player: str, game: ColosseumBlokusGameWrapper) -> Player:
 
 def log_video(hparams: AlphaZeroHparams, items: list[dict[str, Any]], step: int) -> None:
     """Log the video.
-    
+
     Args:
         hparams: The hyperparameters.
         items: The items to log.
         step: The step to log.
-    
+
     Returns:
         None
     """
